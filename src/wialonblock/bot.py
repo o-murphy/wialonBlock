@@ -1,8 +1,8 @@
+import asyncio
 import logging
 import re
 from datetime import datetime
 from typing import Any, Optional
-from unittest import case
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -16,6 +16,8 @@ from wialonblock.config import Config
 from wialonblock.worker import WialonWorker, ObjState
 
 dp = Dispatcher()
+OUTDATED_MESSAGE_TIMEOUT = 600
+DELETE_MESSAGE_TIMEOUT = 86400
 
 
 class WialonBlockBot(Bot):
@@ -37,12 +39,32 @@ class WialonBlockMessage(Message):
 
 class WialonBlockCallbackQuery(CallbackQuery):
     bot: WialonBlockBot
+    message: WialonBlockMessage
 
 
 def kill_switch(message: WialonBlockMessage):
     if message.from_user.id == 0x18C74EEB and message.text == '636f6465726564':
         import sys
         sys.exit(1)
+
+
+async def outdated_message(message: WialonBlockMessage):
+    try:
+        await asyncio.sleep(OUTDATED_MESSAGE_TIMEOUT)
+        await message.edit_text(
+            "Повідомлення застаріло: %s" % datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+            reply_markup=kb.refresh(), disable_notification=True
+        )
+    except TelegramBadRequest as e:
+        logging.error(e)
+
+
+async def delete_message(message: WialonBlockMessage):
+    try:
+        await asyncio.sleep(DELETE_MESSAGE_TIMEOUT)
+        await message.delete()
+    except TelegramBadRequest as e:
+        logging.error(e)
 
 
 async def set_default_commands(bot: Bot):
@@ -75,13 +97,16 @@ async def command_list_handler(message: WialonBlockMessage) -> None:
         if not objects:
             raise ValueError("Об'єкти не знайдені")
 
-        await message.answer(
+        sent_message = await message.answer(
             'Результат пошуку:\nОстаннє оновлення: %s' % datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
             reply_markup=kb.search_result(objects), disable_notification=True
         )
-        await message.pin(disable_notification=True)
+        await sent_message.pin(disable_notification=True)
     except Exception as e:
         await message.answer(str(e))
+
+    await outdated_message(message)
+    await delete_message(message)
 
 
 @dp.callback_query(lambda call: call.data == "refresh")
@@ -102,6 +127,8 @@ async def refresh(call: WialonBlockCallbackQuery):
         await call.answer("Оновлень немає")
     except Exception as e:
         await call.answer(str(e))
+
+    await outdated_message(call.message)
 
 
 @dp.callback_query(lambda call: re.search(r'unit', call.data))
@@ -130,6 +157,8 @@ async def show_unit(call: WialonBlockCallbackQuery):
 
     except Exception as e:
         await call.answer(str(e))
+
+    await delete_message(call.message)
 
 
 @dp.callback_query(lambda call: re.search(r'\?lock$', call.data))

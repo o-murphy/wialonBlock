@@ -10,8 +10,7 @@ logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
 async def run():
     config = load_config()
-    bot_task = run_bot(config)
-    await asyncio.gather(bot_task)
+    await run_bot(config)
 
 
 def main():

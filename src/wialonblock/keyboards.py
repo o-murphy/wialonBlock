@@ -4,6 +4,17 @@ from aiogram import types
 
 from wialonblock.worker import ObjState
 
+REFRESH_BUTTON = types.InlineKeyboardButton(
+    text="🔄 Оновити",
+    callback_data=f'refresh'
+)
+
+
+def refresh():
+    return types.InlineKeyboardMarkup(
+        inline_keyboard=[[REFRESH_BUTTON]]
+    )
+
 
 def search_result(items):
     keyboard_buttons = []
@@ -20,12 +31,7 @@ def search_result(items):
             row.append(button)
         keyboard_buttons.append(row)
 
-    keyboard_buttons.append([
-        types.InlineKeyboardButton(
-            text="🔄 Оновити",
-            callback_data=f'refresh'
-        )
-    ])
+    keyboard_buttons.append([REFRESH_BUTTON])
 
     return types.InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
 
