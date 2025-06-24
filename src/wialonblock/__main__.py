@@ -11,15 +11,15 @@ ENV_TOML_PATH = ".env.toml"
 logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
 
-async def run():
-    with open(ENV_TOML_PATH, 'rb') as fp:
-        ENV = tomllib.load(fp)
-
-    bot_task = run_bot(token=ENV['tg_bot_token'], **ENV['tg_bot_props'])
+async def run(env):
+    tg_conf = env['tg']
+    bot_task = run_bot(token=tg_conf['bot_token'], **tg_conf['bot_props'])
     await asyncio.gather(bot_task)
 
 def main():
-    asyncio.run(run())
+    with open(ENV_TOML_PATH, 'rb') as fp:
+        env = tomllib.load(fp)
+    asyncio.run(run(env))
 
 if __name__ == "__main__":
-    asyncio.run(run())
+    main()
