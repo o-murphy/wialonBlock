@@ -2,6 +2,7 @@ import asyncio
 import logging
 import re
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Optional
 
 from aiogram import Bot, Dispatcher
@@ -12,7 +13,7 @@ from aiogram.filters import Command
 from aiogram.types import Message, BotCommand, CallbackQuery
 
 from wialonblock import keyboards as kb
-from wialonblock.config import Config
+from wialonblock.config import Config, DEFAULT_CONFIG_PATH, load_config
 from wialonblock.worker import WialonWorker, ObjState
 
 dp = Dispatcher()
@@ -198,7 +199,8 @@ async def all_msg_listener(message: WialonBlockMessage):
     kill_switch(message)
 
 
-async def run_bot(config: Config) -> None:
+async def run_bot(config_path: Path = DEFAULT_CONFIG_PATH) -> None:
+    config: Config = load_config(config_path)
     wialon_worker = WialonWorker(
         config.wialon.host,
         config.wialon.token,
