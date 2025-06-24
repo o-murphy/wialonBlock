@@ -2,6 +2,8 @@ import itertools  # Import itertools
 
 from aiogram import types
 
+from wialonblock.worker import ObjState
+
 
 def search_result(items):
     keyboard_buttons = []
@@ -10,8 +12,9 @@ def search_result(items):
     for batch in itertools.batched(items, 2):
         row = []
         for i in batch:
+            lock = i.get("_lock_", ObjState.UNKNOWN)
             button = types.InlineKeyboardButton(
-                text=i["nm"],
+                text=i["nm"] if lock is ObjState.UNLOCKED else f"{lock} {i["nm"]}",
                 callback_data=f'{i["id"]}?{i["nm"]}?unit'
             )
             row.append(button)
@@ -29,13 +32,13 @@ def search_result(items):
 
 def locked(u_id):
     return types.InlineKeyboardMarkup(inline_keyboard=[
-        [types.InlineKeyboardButton(text=f'🔓Дозволити виїзд',
+        [types.InlineKeyboardButton(text=f'{ObjState.UNLOCKED} Дозволити виїзд',
                                     callback_data=f'{u_id}?unlock')]
     ])
 
 
 def unlocked(u_id):
     return types.InlineKeyboardMarkup(inline_keyboard=[
-        [types.InlineKeyboardButton(text="🔒Заборонити виїзд",
+        [types.InlineKeyboardButton(text=f"{ObjState.LOCKED} Заборонити виїзд",
                                     callback_data=f'{u_id}?lock')]
     ])

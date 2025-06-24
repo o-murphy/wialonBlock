@@ -2,6 +2,7 @@ import logging
 import re
 from datetime import datetime
 from typing import Any, Optional
+from unittest import case
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -12,7 +13,7 @@ from aiogram.types import Message, BotCommand, CallbackQuery
 
 from wialonblock import keyboards as kb
 from wialonblock.config import Config
-from wialonblock.worker import WialonWorker
+from wialonblock.worker import WialonWorker, ObjState
 
 dp = Dispatcher()
 
@@ -109,14 +110,24 @@ async def show_unit(call: WialonBlockCallbackQuery):
         u_id, u_name, *_ = call.data.split('?')
         logging.info("Received unit: `%s` with uid: `%s`" % (u_name, u_id))
 
-        is_locked = await call.bot.wialon_worker.check_is_locked(call.message.chat.id, u_id)
+        lock_state = await call.bot.wialon_worker.check_is_locked(call.message.chat.id, u_id)
 
-        if is_locked:
-            await call.message.answer(u_name, reply_markup=kb.locked(u_id), disable_notification=True)
-        else:
-            await call.message.answer(u_name, reply_markup=kb.unlocked(u_id), disable_notification=True)
+        match lock_state:
+            case ObjState.LOCKED:
+                await call.message.answer(f"**{u_name}**",
+                                          reply_markup=kb.locked(u_id),
+                                          parse_mode="markdown",
+                                          disable_notification=True)
+            case ObjState.UNLOCKED:
+                await call.message.answer(f"**{u_name}**",
+                                          reply_markup=kb.unlocked(u_id),
+                                          parse_mode="markdown",
+                                          disable_notification=True)
+            case _:
+                await call.message.answer(f"**{u_name}**\nСтан блокування не відомий",
+                                          parse_mode="markdown",
+                                          disable_notification=True)
 
-        await call.answer('OK')
     except Exception as e:
         await call.answer(str(e))
 
