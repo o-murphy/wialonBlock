@@ -1,10 +1,10 @@
 import logging
-from typing import Dict, Any, List, Tuple
+from dataclasses import dataclass
+from typing import Dict, Any, Tuple, Optional
 
 from aiowialon import Wialon
-from dataclasses import dataclass, field
 
-from wialonblock.keyboards import locked
+from wialonblock.config import TelegramGroup
 
 
 class WialonSession(Wialon):
@@ -42,10 +42,10 @@ class WialonSession(Wialon):
 
 
 @dataclass
-class Worker:
+class WialonWorker:
     wln_host: str
     wln_token: str
-    tg_groups: Dict[str, Dict[str, Any]]
+    tg_groups: Dict[str, TelegramGroup]
 
     async def get_group_objects(self, group_name, session: WialonSession):
         params = {
@@ -88,9 +88,9 @@ class Worker:
         items = response.get('items', [])
         return items
 
-    async def get_groups(self, tg_group_id):
+    async def get_groups(self, tg_group_id) -> Optional[Tuple[TelegramGroup, ...]]:
         if groups := self.tg_groups.get(str(tg_group_id), None):
-            return groups['wln_group_locked'], groups['wln_group_unlocked'], groups['wln_group_ignored']
+            return groups.wln_group_locked, groups.wln_group_unlocked, groups.wln_group_ignored
         return None
 
     async def lock(self, tg_group_id, uid):
@@ -103,18 +103,18 @@ class Worker:
         uid = int(uid)
 
         if group := await self.get_groups(tg_group_id):
-           async with WialonSession(token=self.wln_token, host=self.wln_host) as session:
-               locked, unlocked, ignored = group
+            async with WialonSession(token=self.wln_token, host=self.wln_host) as session:
+                locked, unlocked, ignored = group
 
-               locked_uids = await self.get_group_objects(locked, session)
-               unlocked_uids = await self.get_group_objects(unlocked, session)
-               if uid in locked_uids and uid in unlocked_uids:
-                   raise Exception("Device in both groups, uid: `%s`" % uid)
-               elif uid in locked_uids:
-                   return True
-               elif uid in unlocked_uids:
-                   return False
-               raise Exception("Not found, uid: `%s`" % uid)
+                locked_uids = await self.get_group_objects(locked, session)
+                unlocked_uids = await self.get_group_objects(unlocked, session)
+                if uid in locked_uids and uid in unlocked_uids:
+                    raise Exception("Device in both groups, uid: `%s`" % uid)
+                elif uid in locked_uids:
+                    return True
+                elif uid in unlocked_uids:
+                    return False
+                raise Exception("Not found, uid: `%s`" % uid)
         else:
             raise Exception(f"Group `%s` not found." % tg_group_id)
 

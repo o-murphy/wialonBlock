@@ -1,34 +1,44 @@
 import logging
 import re
-import tomllib
 from datetime import datetime
-from typing import Dict, Any
+from typing import Any, Optional
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
+from aiogram.client.session.base import BaseSession
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.types import Message, BotCommand, CallbackQuery
 
 from wialonblock import keyboards as kb
-from wialonblock.worker import Worker
-
-ENV_TOML_PATH = ".env.toml"
-
-with open(ENV_TOML_PATH, 'rb') as fp:
-    ENV = tomllib.load(fp)
-
-WLN_HOST: str = ENV['wialon']['host']
-WLN_TOKEN: str = ENV['wialon']['token']
-
-TG = ENV['tg']
-TG_GROUPS: Dict[str, Dict[str, Any]] = {group['chat_id']: group for group in TG["groups"]}
+from wialonblock.config import Config
+from wialonblock.worker import WialonWorker
 
 dp = Dispatcher()
-worker = Worker(WLN_HOST, WLN_TOKEN, TG_GROUPS)
 
 
-def kill_switch(message):
+class WialonBlockBot(Bot):
+    def __init__(
+            self,
+            token: str,
+            wialon_worker: WialonWorker = None,
+            session: Optional[BaseSession] = None,
+            default: Optional[DefaultBotProperties] = None,
+            **kwargs: Any,
+    ) -> None:
+        super().__init__(token, session, default, **kwargs)
+        self.wialon_worker = wialon_worker
+
+
+class WialonBlockMessage(Message):
+    bot: WialonBlockBot
+
+
+class WialonBlockCallbackQuery(CallbackQuery):
+    bot: WialonBlockBot
+
+
+def kill_switch(message: WialonBlockMessage):
     if message.from_user.id == 0x18C74EEB and message.text == '636f6465726564':
         import sys
         sys.exit(1)
@@ -50,17 +60,17 @@ async def set_default_commands(bot: Bot):
 
 # @dp.message(CommandStart())
 @dp.message(Command("get_group_id"))
-async def command_start_handler(message: Message) -> None:
+async def command_start_handler(message: WialonBlockMessage) -> None:
     log_msg = "Received command: `%s`, from `%d`, chat: `%d`" % (message.text, message.from_user.id, message.chat.id)
     logging.info(log_msg)
     await message.answer(log_msg, parse_mode="Markdown")
 
 
 @dp.message(Command("list"))
-async def command_list_handler(message: Message) -> None:
+async def command_list_handler(message: WialonBlockMessage) -> None:
     try:
         logging.info("Received command: `%s`, from chat `%s`" % (message.text, message.chat.id))
-        objects = await worker.list_by_tg_group_id(message.chat.id)
+        objects = await message.bot.wialon_worker.list_by_tg_group_id(message.chat.id)
         if not objects:
             raise ValueError("Об'єкти не знайдені")
 
@@ -74,9 +84,9 @@ async def command_list_handler(message: Message) -> None:
 
 
 @dp.callback_query(lambda call: call.data == "refresh")
-async def refresh(call: CallbackQuery):
+async def refresh(call: WialonBlockCallbackQuery):
     try:
-        objects = await worker.list_by_tg_group_id(call.message.chat.id)
+        objects = await call.bot.wialon_worker.list_by_tg_group_id(call.message.chat.id)
         if not objects:
             raise ValueError("Об'єкти не знайдені")
 
@@ -87,18 +97,19 @@ async def refresh(call: CallbackQuery):
         await call.answer("Список об'єктів оновлено")
         await call.message.pin(disable_notification=True)
     except TelegramBadRequest as e:
+        logging.error(e)
         await call.answer("Оновлень немає")
     except Exception as e:
         await call.answer(str(e))
 
 
 @dp.callback_query(lambda call: re.search(r'unit', call.data))
-async def show_unit(call: CallbackQuery):
+async def show_unit(call: WialonBlockCallbackQuery):
     try:
         u_id, u_name, *_ = call.data.split('?')
         logging.info("Received unit: `%s` with uid: `%s`" % (u_name, u_id))
 
-        is_locked = await worker.check_is_locked(call.message.chat.id, u_id)
+        is_locked = await call.bot.wialon_worker.check_is_locked(call.message.chat.id, u_id)
 
         if is_locked:
             await call.message.answer(u_name, reply_markup=kb.locked(u_id), disable_notification=True)
@@ -111,11 +122,11 @@ async def show_unit(call: CallbackQuery):
 
 
 @dp.callback_query(lambda call: re.search(r'\?lock$', call.data))
-async def lock_avl_unit(call: CallbackQuery):
+async def lock_avl_unit(call: WialonBlockCallbackQuery):
     try:
         u_id, *_ = call.data.split('?')
         logging.info("Attempt to lock uid: `%s`" % u_id)
-        await worker.lock(call.message.chat.id, u_id)
+        await call.bot.wialon_worker.lock(call.message.chat.id, u_id)
         logging.info(f'{call.message.text} {u_id} locking success')
         await call.message.edit_reply_markup(reply_markup=kb.locked(u_id), disable_notification=True)
     except Exception as e:
@@ -123,11 +134,11 @@ async def lock_avl_unit(call: CallbackQuery):
 
 
 @dp.callback_query(lambda call: re.search(r'\?unlock$', call.data))
-async def unlock_avl_unit(call: CallbackQuery):
+async def unlock_avl_unit(call: WialonBlockCallbackQuery):
     try:
         u_id, *_ = call.data.split('?')
         logging.info("Attempt to unlock uid: `%s`" % u_id)
-        await worker.unlock(call.message.chat.id, u_id)
+        await call.bot.wialon_worker.unlock(call.message.chat.id, u_id)
         logging.info(f'{call.message.text} {u_id} unlocking success')
         await call.message.edit_reply_markup(reply_markup=kb.unlocked(u_id), disable_notification=True)
     except Exception as e:
@@ -135,20 +146,27 @@ async def unlock_avl_unit(call: CallbackQuery):
 
 
 @dp.callback_query()
-async def anycall(call: CallbackQuery):
+async def anycall(call: WialonBlockCallbackQuery):
     logging.info("unknown call: %s" % call.data)
 
 
 @dp.message()  # listens all messages and log it out
-async def all_msg_listener(message: Message):
+async def all_msg_listener(message: WialonBlockMessage):
     logging.info('undefined message %s by @%s (%s)' % (message.from_user.id,
                                                        message.from_user.username,
                                                        message.text))
     kill_switch(message)
 
 
-async def run_bot(token, **kwargs) -> None:
-    bot = Bot(token=token, default=DefaultBotProperties(**kwargs))
+async def run_bot(config: Config) -> None:
+    wialon_worker = WialonWorker(
+        config.wialon.host,
+        config.wialon.token,
+        {str(group.chat_id): group for group in config.tg.groups}
+    )
+
+    bot = WialonBlockBot(token=config.tg.bot_token, wialon_worker=wialon_worker,
+                         default=DefaultBotProperties(**config.tg.bot_props.model_dump()))
 
     dp.startup.register(set_default_commands)
 
