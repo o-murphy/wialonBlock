@@ -111,7 +111,7 @@ async def command_list_handler(message: WialonBlockMessage) -> None:
     # await delete_message(message)
 
 
-@dp.callback_query(lambda call: call.data == "refresh")
+@dp.callback_query(kb.RefreshCallback.filter())
 async def refresh(call: WialonBlockCallbackQuery):
     try:
         objects = await call.bot.wialon_worker.list_by_tg_group_id(call.message.chat.id)
@@ -134,42 +134,44 @@ async def refresh(call: WialonBlockCallbackQuery):
 
     await outdated_message(call.message)
 
+
 UNIT_MESSAGE_FORMAT = """*{name}*
 
 *Стан*: {lock}
-*Оновлено*: {datetime}"""
+*Оновлено*: {datetime}
+"""
 
-@dp.callback_query(lambda call: re.search(r'unit', call.data))
-async def show_unit(call: WialonBlockCallbackQuery):
+
+async def update_lock_state(unit, lock_state, message: WialonBlockMessage, as_answer=False):
+    message_text = UNIT_MESSAGE_FORMAT.format(
+        name=unit.get('item', {}).get('nm', "Невідомий об'єкт"),
+        lock=lock_state,
+        datetime=datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+    )
+    u_id = unit.get('item', {}).get('id', None)
+
+    message_action = message.answer if as_answer else message.edit_text
+
+    match lock_state:
+        case ObjState.LOCKED:
+            await message_action(message_text,
+                                 reply_markup=kb.locked(u_id),
+                                 disable_notification=True)
+        case ObjState.UNLOCKED:
+            await message_action(message_text,
+                                 reply_markup=kb.unlocked(u_id),
+                                 disable_notification=True)
+        case _:
+            await message_action(message_text,
+                                 disable_notification=True)
+
+
+@dp.callback_query(kb.GetUnitCallback.filter())
+async def show_unit(call: WialonBlockCallbackQuery, callback_data: kb.GetUnitCallback):
     try:
-        u_id, *_ = call.data.split('?')
-
+        u_id = callback_data.unit_id
         unit, lock_state = await call.bot.wialon_worker.get_unit_and_lock_state(call.message.chat.id, u_id)
-
-        try:
-            u_name = unit['item']['nm']
-        except KeyError:
-            raise KeyError("Неможливо отримати дані об'єкта `%s`" % u_id)
-
-        message_text = UNIT_MESSAGE_FORMAT.format(
-            name=u_name,
-            lock=lock_state,
-            datetime=datetime.now().strftime("%d.%m.%Y %H:%M:%S")
-        )
-
-        match lock_state:
-            case ObjState.LOCKED:
-                await call.message.answer(message_text,
-                                          reply_markup=kb.locked(u_id),
-                                          disable_notification=True)
-            case ObjState.UNLOCKED:
-                await call.message.answer(message_text,
-                                          reply_markup=kb.unlocked(u_id),
-                                          disable_notification=True)
-            case _:
-                await call.message.answer(message_text,
-                                          disable_notification=True)
-
+        await update_lock_state(unit, lock_state, call.message, as_answer=True)
         await call.answer()
     except Exception as e:
         logging.exception(e)
@@ -178,65 +180,39 @@ async def show_unit(call: WialonBlockCallbackQuery):
     await delete_message(call.message)
 
 
-@dp.callback_query(lambda call: re.search(r'\?lock$', call.data))
-async def lock_avl_unit(call: WialonBlockCallbackQuery):
+@dp.callback_query(kb.LockUnitCallback.filter())
+async def lock_avl_unit(call: WialonBlockCallbackQuery, callback_data: kb.LockUnitCallback):
     try:
-        u_id, *_ = call.data.split('?')
-
+        u_id = callback_data.unit_id
         logging.info("Attempt to lock uid: `%s`" % u_id)
-
         await call.bot.wialon_worker.lock(call.message.chat.id, u_id)
-
         unit, lock_state = await call.bot.wialon_worker.get_unit_and_lock_state(call.message.chat.id, u_id)
-
-        try:
-            u_name = unit['item']['nm']
-        except KeyError:
-            raise KeyError("Неможливо отримати дані об'єкта `%s`" % u_id)
-
-        if lock_state == ObjState.LOCKED:
-            logging.info(f'{call.message.text} {u_id} locking success')
-        else:
-            raise ValueError("Object `%s`: (`%s`) was not locked" % (u_name, u_id))
-        await call.message.edit_text(
-            UNIT_MESSAGE_FORMAT.format(
-                name=u_name,
-                lock=lock_state,
-                datetime=datetime.now().strftime("%d.%m.%Y %H:%M:%S")
-            ),
-            reply_markup=kb.locked(u_id),
-            disable_notification=True,
-        )
+        match lock_state:
+            case ObjState.LOCKED:
+                logging.info(f'Object `%s` locking success' % u_id)
+            case _:
+                raise ValueError("Object `%s` was not locked" % u_id)
+        await update_lock_state(unit, lock_state, call.message)
+        await call.answer()
     except Exception as e:
         logging.exception(e)
         await call.answer(str(e))
 
 
-@dp.callback_query(lambda call: re.search(r'\?unlock$', call.data))
-async def unlock_avl_unit(call: WialonBlockCallbackQuery):
+@dp.callback_query(kb.UnlockUnitCallback.filter())
+async def unlock_avl_unit(call: WialonBlockCallbackQuery, callback_data: kb.UnlockUnitCallback):
     try:
-        u_id, *_ = call.data.split('?')
-
+        u_id = callback_data.unit_id
         logging.info("Attempt to unlock uid: `%s`" % u_id)
-
         await call.bot.wialon_worker.unlock(call.message.chat.id, u_id)
-
         unit, lock_state = await call.bot.wialon_worker.get_unit_and_lock_state(call.message.chat.id, u_id)
-
-        try:
-            u_name = unit['item']['nm']
-        except KeyError:
-            raise KeyError("Неможливо отримати дані об'єкта `%s`" % u_id)
-
-        await call.message.edit_text(
-            UNIT_MESSAGE_FORMAT.format(
-                name=u_name,
-                lock=lock_state,
-                datetime=datetime.now().strftime("%d.%m.%Y %H:%M:%S")
-            ),
-            reply_markup=kb.unlocked(u_id),
-            disable_notification=True,
-        )
+        match lock_state:
+            case ObjState.UNLOCKED:
+                logging.info(f'Object `%s` unlocking success' % u_id)
+            case _:
+                raise ValueError("Object `%s` was not unlocked" % u_id)
+        await update_lock_state(unit, lock_state, call.message)
+        await call.answer()
     except Exception as e:
         logging.exception(e)
         await call.answer(str(e))

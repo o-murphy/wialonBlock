@@ -16,13 +16,13 @@ class WialonSession(Wialon):
         """
         Asynchronously enters the context, performing Wialon login.
         """
-        logging.info(f"Attempting Wialon login for host: {self.host}...")
+        logging.info(f"Attempting Wialon login for host: {self.__base_url}...")
         # Use the stored token and app_name for login
         try:
             await self.login()
-            logging.info(f"Successfully logged in to Wialon for host: {self.host}")
+            logging.info(f"Successfully logged in to Wialon for host: {self.__base_url}")
         except Exception as e:
-            logging.error(f"Failed to log in to Wialon for host {self.host}: {e}")
+            logging.error(f"Failed to log in to Wialon for host {self.__base_url}: {e}")
             # Re-raise the exception to propagate login failure
             raise
         return self  # Important: return self so 'as session' works
@@ -32,12 +32,12 @@ class WialonSession(Wialon):
         Asynchronously exits the context, performing Wialon logout.
         Logs any exceptions that occurred within the 'async with' block.
         """
-        logging.info(f"Attempting Wialon logout for host: {self.host}...")
+        logging.info(f"Attempting Wialon logout for host: {self.__base_url}...")
         try:
             await self.logout()
-            logging.info(f"Successfully logged out from Wialon for host: {self.host}")
+            logging.info(f"Successfully logged out from Wialon for host: {self.__base_url}")
         except Exception as e:
-            logging.error(f"Error during Wialon logout for host {self.host}: {e}")
+            logging.error(f"Error during Wialon logout for host {self.__base_url}: {e}")
         # If exc_type is not None, an exception occurred in the 'async with' block.
         # By not returning True, the exception will be re-raised after __aexit__.
         if exc_type:
