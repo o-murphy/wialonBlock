@@ -107,7 +107,7 @@ async def command_list_handler(message: WialonBlockMessage) -> None:
         await message.answer(str(e))
 
     await outdated_message(message)
-    await delete_message(message)
+    # await delete_message(message)
 
 
 @dp.callback_query(lambda call: call.data == "refresh")
@@ -117,12 +117,13 @@ async def refresh(call: WialonBlockCallbackQuery):
         if not objects:
             raise ValueError("Об'єкти не знайдені")
 
-        await call.message.edit_text(
+        sent_message = await call.message.answer(
             'Результат пошуку:\nОстаннє оновлення: %s' % datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
             reply_markup=kb.search_result(objects), disable_notification=True
         )
         await call.answer("Список об'єктів оновлено")
-        await call.message.pin(disable_notification=True)
+        await call.sent_message.pin(disable_notification=True)
+        await call.message.delete()
     except TelegramBadRequest as e:
         logging.error(e)
         await call.answer("Оновлень немає")

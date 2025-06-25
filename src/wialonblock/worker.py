@@ -44,8 +44,8 @@ class WialonSession(Wialon):
 
 class ObjState(StrEnum):
     UNKNOWN = "❓"
-    LOCKED = "🔒"
-    UNLOCKED = "🔓"
+    LOCKED = "⛔️"
+    UNLOCKED = "🟢"
 
 
 @dataclass
