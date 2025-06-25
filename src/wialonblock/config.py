@@ -21,7 +21,7 @@ TELEGRAM_USERNAME_PATTERN = r'^t.me/[a-zA-Z][a-zA-Z0-9_]{4,31}$'
 class BotProps(BaseModel):
     """Модель для властивостей бота."""
     disable_notification: bool
-    parse_mode: Literal["html", "markdown", "markdownv2"]
+    parse_mode: Literal["HTML", "Markdown", "MarkdownV2"]
 
 
 class TelegramGroup(BaseModel):
@@ -88,74 +88,3 @@ def load_config(path: Path = DEFAULT_CONFIG_PATH) -> Config:
 if __name__ == '__main__':
     print(load_config(Path('../../.env.toml')))
 
-# # --- Приклад використання ---
-# if __name__ == "__main__":
-#     import toml
-#     import json
-#
-#     toml_string_valid = """
-# tg.bot_name = "t.me/wialonblockbot"
-# tg.bot_token = "7804428474:AAEVnAf9F-dOJSk7SOl847DTKLa5E5iPafc"
-#
-# [wialon]
-# host = "https://local.gpshub.pro"
-# token = "3b1b9d108ff756a9e2a7fbc4445e31af4D169D35140B6F0DD05CBD3187B94AB468EA88A0"
-#
-# [tg.bot_props]
-# disable_notification = true
-# parse_mode = "html"
-#
-# [[tg.groups]]
-# tag = "kyiv"
-# chat_name = "Kyiv"
-# chat_id = "-1002561088191"
-# wln_group_locked = "Autoblock_Kyiv_ON"
-# wln_group_unlocked = "Autoblock_Kyiv_OFF"
-# wln_group_ignored = ""
-#
-# [[tg.groups]]
-# tag = "lviv"
-# chat_name = "Lviv"
-# chat_id = "-1001234567890"
-# wln_group_locked = "Autoblock_Lviv_ON"
-# wln_group_unlocked = "Autoblock_Lviv_OFF"
-# wln_group_ignored = "some_ignored_group"
-#     """
-#
-#     toml_string_invalid_bot_name = """
-# tg.bot_name = "t.me/invalid" # Закоротке ім'я користувача
-# tg.bot_token = "7804428474:AAEVnAf9F-dOJSk7SOl847DTKLa5E5iPafc"
-#
-# [wialon]
-# host = "https://local.gpshub.pro"
-# token = "3b1b9d108ff756a9e2a7fbc4445e31af4D169D35140B6F0DD05CBD3187B94AB468EA88A0"
-#
-# [tg.bot_props]
-# disable_notification = true
-# parse_mode = "html"
-#
-# [[tg.groups]]
-# tag = "kyiv"
-# chat_name = "Kyiv"
-# chat_id = "-1002561088191"
-# wln_group_locked = "Autoblock_Kyiv_ON"
-# wln_group_unlocked = "Autoblock_Kyiv_OFF"
-# wln_group_ignored = ""
-#     """
-#
-#     print("--- Валідна конфігурація ---")
-#     try:
-#         parsed_toml = toml.loads(toml_string_valid)
-#         config = Config.model_validate(parsed_toml)
-#         print("Конфігурація успішно провалідована!")
-#     except Exception as e:
-#         print(f"Помилка валідації:\n{e}")
-#         # print(json.dumps(e.errors(), indent=2))
-#
-#     print("\n--- Невалідна конфігурація (bot_name) ---")
-#     try:
-#         parsed_toml_invalid_bot_name = toml.loads(toml_string_invalid_bot_name)
-#         config_invalid_bot_name = Config.model_validate(parsed_toml_invalid_bot_name)
-#     except Exception as e:
-#         print(f"Помилка валідації (bot_name):\n{e}")
-#         # print(json.dumps(e.errors(), indent=2))

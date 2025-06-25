@@ -4,6 +4,7 @@ from enum import StrEnum
 from typing import Dict, Any, Tuple, Optional
 
 from aiowialon import Wialon
+from aiowialon.types.flags import UnitsDataFlag
 
 from wialonblock.config import TelegramGroup
 
@@ -65,7 +66,7 @@ class WialonWorker:
                 "propType": ""
             },
             "force": 1,
-            "flags": 5,
+            "flags": UnitsDataFlag.BASE | UnitsDataFlag.BILLING_PROPS,
             "from": 0,
             "to": len(group_names)
         }
@@ -89,7 +90,7 @@ class WialonWorker:
                 "propType": ""
             },
             "force": 1,
-            "flags": 5,
+            "flags": UnitsDataFlag.BASE | UnitsDataFlag.BILLING_PROPS,
             "from": 0,
             "to": len(ids)
         }
@@ -101,6 +102,21 @@ class WialonWorker:
         if groups := self.tg_groups.get(str(tg_group_id), None):
             return groups.wln_group_locked, groups.wln_group_unlocked, groups.wln_group_ignored
         return None
+
+    async def get_unit(self, uid):
+        uid = int(uid)
+        async with WialonSession(token=self.wln_token, host=self.wln_host) as session:
+            params = {
+                "id": uid,
+                "flags": (
+                        UnitsDataFlag.BASE
+                        | UnitsDataFlag.BILLING_PROPS
+                        # | UnitsDataFlag.LAST_MSG_N_POS
+                        # | UnitsDataFlag.POS
+                        # | UnitsDataFlag.SENSORS
+                )
+            }
+            return await session.core_search_item(**params)
 
     async def lock(self, tg_group_id, uid):
         uid = int(uid)

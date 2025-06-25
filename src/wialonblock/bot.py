@@ -53,7 +53,7 @@ async def outdated_message(message: WialonBlockMessage):
     try:
         await asyncio.sleep(OUTDATED_MESSAGE_TIMEOUT)
         await message.edit_text(
-            "Повідомлення застаріло: %s" % datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+            "*Повідомлення застаріло:* %s" % datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
             reply_markup=kb.refresh(), disable_notification=True
         )
     except TelegramBadRequest as e:
@@ -65,7 +65,7 @@ async def delete_message(message: WialonBlockMessage):
         await asyncio.sleep(DELETE_MESSAGE_TIMEOUT)
         await message.delete()
     except TelegramBadRequest as e:
-        logging.error(e)
+        logging.exception(e)
 
 
 async def set_default_commands(bot: Bot):
@@ -87,7 +87,7 @@ async def set_default_commands(bot: Bot):
 async def command_start_handler(message: WialonBlockMessage) -> None:
     log_msg = "Received command: `%s`, from `%d`, chat: `%d`" % (message.text, message.from_user.id, message.chat.id)
     logging.info(log_msg)
-    await message.answer(log_msg, parse_mode="Markdown")
+    await message.answer(log_msg)
 
 
 @dp.message(Command("list"))
@@ -99,11 +99,12 @@ async def command_list_handler(message: WialonBlockMessage) -> None:
             raise ValueError("Об'єкти не знайдені")
 
         sent_message = await message.answer(
-            'Результат пошуку:\nОстаннє оновлення: %s' % datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+            '*Результат пошуку:*\nОстаннє оновлення: %s' % datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
             reply_markup=kb.search_result(objects), disable_notification=True
         )
         await sent_message.pin(disable_notification=True)
     except Exception as e:
+        logging.exception(e)
         await message.answer(str(e))
 
     await outdated_message(message)
@@ -128,37 +129,54 @@ async def refresh(call: WialonBlockCallbackQuery):
         logging.error(e)
         await call.answer("Оновлень немає")
     except Exception as e:
+        logging.exception(e)
         await call.answer(str(e))
 
     await outdated_message(call.message)
 
+UNIT_MESSAGE_FORMAT = """*{name}*
+
+*Стан*: {lock}
+*Оновлено*: {datetime}"""
 
 @dp.callback_query(lambda call: re.search(r'unit', call.data))
 async def show_unit(call: WialonBlockCallbackQuery):
     try:
         u_id, u_name, *_ = call.data.split('?')
+
+        try:
+            unit = await call.bot.wialon_worker.get_unit(u_id)
+            print(unit)
+            u_name = unit['item']['nm']
+        except KeyError:
+            raise KeyError("Неможливо отримати дані об'єкта `%s`, id: `%s`" % (u_name, u_id))
+
         logging.info("Received unit: `%s` with uid: `%s`" % (u_name, u_id))
 
         lock_state = await call.bot.wialon_worker.check_is_locked(call.message.chat.id, u_id)
 
+        message_text = UNIT_MESSAGE_FORMAT.format(
+            name=u_name,
+            lock=lock_state,
+            datetime=datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+        )
+
         match lock_state:
             case ObjState.LOCKED:
-                await call.message.answer(f"**{u_name}**",
+                await call.message.answer(message_text,
                                           reply_markup=kb.locked(u_id),
-                                          parse_mode="markdown",
                                           disable_notification=True)
             case ObjState.UNLOCKED:
-                await call.message.answer(f"**{u_name}**",
+                await call.message.answer(message_text,
                                           reply_markup=kb.unlocked(u_id),
-                                          parse_mode="markdown",
                                           disable_notification=True)
             case _:
-                await call.message.answer(f"**{u_name}**\nСтан блокування не відомий",
-                                          parse_mode="markdown",
+                await call.message.answer(message_text,
                                           disable_notification=True)
 
         await call.answer()
     except Exception as e:
+        logging.exception(e)
         await call.answer(str(e))
 
     await delete_message(call.message)
@@ -168,11 +186,29 @@ async def show_unit(call: WialonBlockCallbackQuery):
 async def lock_avl_unit(call: WialonBlockCallbackQuery):
     try:
         u_id, *_ = call.data.split('?')
+
+        try:
+            unit = await call.bot.wialon_worker.get_unit(u_id)
+            u_name = unit['item']['nm']
+        except KeyError:
+            raise KeyError("Неможливо отримати дані об'єкта id: `%s`" % u_id)
+
+        lock_state = await call.bot.wialon_worker.check_is_locked(call.message.chat.id, u_id)
+
         logging.info("Attempt to lock uid: `%s`" % u_id)
         await call.bot.wialon_worker.lock(call.message.chat.id, u_id)
         logging.info(f'{call.message.text} {u_id} locking success')
-        await call.message.edit_reply_markup(reply_markup=kb.locked(u_id), disable_notification=True)
+        await call.message.edit_text(
+            UNIT_MESSAGE_FORMAT.format(
+                name=u_name,
+                lock=lock_state,
+                datetime=datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+            ),
+            reply_markup=kb.unlocked(u_id),
+            disable_notification=True,
+        )
     except Exception as e:
+        logging.exception(e)
         await call.answer(str(e))
 
 
@@ -180,11 +216,29 @@ async def lock_avl_unit(call: WialonBlockCallbackQuery):
 async def unlock_avl_unit(call: WialonBlockCallbackQuery):
     try:
         u_id, *_ = call.data.split('?')
+
+        try:
+            unit = await call.bot.wialon_worker.get_unit(u_id)
+            u_name = unit['item']['nm']
+        except KeyError:
+            raise KeyError("Неможливо отримати дані об'єкта id: `%s`" % u_id)
+
+        lock_state = await call.bot.wialon_worker.check_is_locked(call.message.chat.id, u_id)
+
         logging.info("Attempt to unlock uid: `%s`" % u_id)
         await call.bot.wialon_worker.unlock(call.message.chat.id, u_id)
         logging.info(f'{call.message.text} {u_id} unlocking success')
-        await call.message.edit_reply_markup(reply_markup=kb.unlocked(u_id), disable_notification=True)
+        await call.message.edit_text(
+            UNIT_MESSAGE_FORMAT.format(
+                name=u_name,
+                lock=lock_state,
+                datetime=datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+            ),
+            reply_markup=kb.locked(u_id),
+            disable_notification=True,
+        )
     except Exception as e:
+        logging.exception(e)
         await call.answer(str(e))
 
 
