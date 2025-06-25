@@ -180,11 +180,13 @@ async def lock_avl_unit(call: WialonBlockCallbackQuery, callback_data: kb.LockUn
     try:
         u_id = callback_data.unit_id
         logging.info("Attempt to lock uid: `%s`" % u_id)
-        await call.bot.wialon_worker.lock(call.message.chat.id, u_id)
-        unit, lock_state = await call.bot.wialon_worker.get_unit_and_lock_state(call.message.chat.id, u_id)
+        unit, lock_state = await call.bot.wialon_worker.lock(call.message.chat.id, u_id)
         match lock_state:
             case ObjState.LOCKED:
-                logging.info(f'Object `%s` locking success' % u_id)
+                logging.info(
+                    f'Object `%s` (`%s`) locking success'
+                    % (unit.get('item', {}).get('nm', "Невідомий об'єкт"), u_id)
+                )
             case _:
                 raise ValueError("Object `%s` was not locked" % u_id)
         await update_lock_state(unit, lock_state, call.message)
@@ -199,11 +201,13 @@ async def unlock_avl_unit(call: WialonBlockCallbackQuery, callback_data: kb.Unlo
     try:
         u_id = callback_data.unit_id
         logging.info("Attempt to unlock uid: `%s`" % u_id)
-        await call.bot.wialon_worker.unlock(call.message.chat.id, u_id)
-        unit, lock_state = await call.bot.wialon_worker.get_unit_and_lock_state(call.message.chat.id, u_id)
+        unit, lock_state = await call.bot.wialon_worker.unlock(call.message.chat.id, u_id)
         match lock_state:
             case ObjState.UNLOCKED:
-                logging.info(f'Object `%s` unlocking success' % u_id)
+                logging.info(
+                    f'Object `%s` (`%s`) unlocking success'
+                    % (unit.get('item', {}).get('nm', "Невідомий об'єкт"), u_id)
+                )
             case _:
                 raise ValueError("Object `%s` was not unlocked" % u_id)
         await update_lock_state(unit, lock_state, call.message)

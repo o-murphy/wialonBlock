@@ -1,10 +1,10 @@
-import contextlib
 import logging
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Dict, Any, Tuple, Optional, Type
 
-from aiowialon import Wialon
+from aiowialon import Wialon, WialonError
+from aiowialon.types import flags
 from aiowialon.types.flags import UnitsDataFlag
 
 from wialonblock.config import TelegramGroup
@@ -131,9 +131,9 @@ class WialonWorker:
             "flags": (
                     UnitsDataFlag.BASE
                     | UnitsDataFlag.BILLING_PROPS
-                    # | UnitsDataFlag.LAST_MSG_N_POS
-                    # | UnitsDataFlag.POS
-                    # | UnitsDataFlag.SENSORS
+                # | UnitsDataFlag.LAST_MSG_N_POS
+                # | UnitsDataFlag.POS
+                # | UnitsDataFlag.SENSORS
             )
         }
         return await session.core_search_item(**params)
@@ -149,19 +149,28 @@ class WialonWorker:
         if not from_uids and not to_uids:
             raise ValueError("Both groups are empty")
 
+        if not uid in from_uids:
+            raise ValueError("Object `%s` not found in expected group `%s`" % (uid, from_group["id"]))
+
         from_uids.remove(uid)
         to_uids.append(uid)
-        params = {
-            "itemId": from_group["id"],
-            "units": from_uids
-        }
 
-        await session.unit_group_update_units(**params)
-        params = {
-            "itemId": to_group["id"],
-            "units": to_uids
-        }
-        await session.unit_group_update_units(**params)
+        update_from_group_call = session.unit_group_update_units(
+            **{"itemId": from_group["id"], "units": from_uids}
+        )
+
+        update_to_group_call = session.unit_group_update_units(
+            **{"itemId": to_group["id"], "units": to_uids}
+        )
+
+        try:
+            await session.batch(
+                update_from_group_call,
+                update_to_group_call,
+                flags_=flags.BatchFlag.STOP_ON_ERROR
+            )
+        except WialonError as err:
+            print("Errors", err.reason)
 
     async def lock(self, tg_group_id, uid):
         uid = int(uid)
@@ -169,6 +178,7 @@ class WialonWorker:
             async with WialonSession(token=self.wln_token, host=self.wln_host) as session:
                 locked, unlocked, ignored = group
                 await self._swap_groups(uid, unlocked, locked, session=session)
+                return await self._get_unit_and_lock_state(group, uid, session=session)
         else:
             raise Exception(f"Group `%s` not found." % tg_group_id)
 
@@ -178,6 +188,7 @@ class WialonWorker:
             async with WialonSession(token=self.wln_token, host=self.wln_host) as session:
                 locked, unlocked, ignored = group
                 await self._swap_groups(uid, locked, unlocked, session=session)
+                return await self._get_unit_and_lock_state(group, uid, session=session)
         else:
             raise Exception(f"Group `%s` not found." % tg_group_id)
 
@@ -192,17 +203,20 @@ class WialonWorker:
         logging.error("Not found, uid: `%s`" % uid)
         return ObjState.UNKNOWN
 
-    async def get_unit_and_lock_state(self, tg_group_id, uid):
+    async def _get_unit_and_lock_state(self, group: Tuple[TelegramGroup, TelegramGroup, TelegramGroup],
+                                       uid, session):
         uid = int(uid)
+        locked, unlocked, ignored = group
+        locked_uids = await self._get_group_objects(locked, session=session)
+        unlocked_uids = await self._get_group_objects(unlocked, session=session)
+        lock_state = await self._check_is_locked(uid, locked_uids, unlocked_uids)
+        unit = await self._get_unit(uid, session=session)
+        return unit, lock_state
 
+    async def get_unit_and_lock_state(self, tg_group_id, uid):
         if group := await self.get_groups(tg_group_id):
             async with WialonSession(token=self.wln_token, host=self.wln_host) as session:
-                locked, unlocked, ignored = group
-                locked_uids = await self._get_group_objects(locked, session=session)
-                unlocked_uids = await self._get_group_objects(unlocked, session=session)
-                lock_state = await self._check_is_locked(uid, locked_uids, unlocked_uids)
-                unit = await self._get_unit(uid, session=session)
-                return unit, lock_state
+                return await self._get_unit_and_lock_state(group, uid, session=session)
         else:
             raise Exception(f"Group `%s` not found." % tg_group_id)
 
@@ -212,7 +226,6 @@ class WialonWorker:
                 locked, unlocked, ignored = group
                 locked_uids = await self._get_group_objects(locked, session=session)
                 unlocked_uids = await self._get_group_objects(unlocked, session=session)
-                # uids = await self.get_group_objects(locked, unlocked, session=session)
                 uids = locked_uids + unlocked_uids
                 if ignored:
                     ignored_uids = await self._get_group_objects(ignored, session=session)
