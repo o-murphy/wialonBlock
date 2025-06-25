@@ -54,7 +54,7 @@ async def outdated_message(message: WialonBlockMessage):
         await asyncio.sleep(OUTDATED_MESSAGE_TIMEOUT)
         await message.edit_text(
             "*Повідомлення застаріло:* %s" % datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
-            reply_markup=kb.refresh(), disable_notification=True
+            reply_markup=kb.refresh()
         )
     except TelegramBadRequest as e:
         logging.error(e)
@@ -100,7 +100,7 @@ async def command_list_handler(message: WialonBlockMessage) -> None:
 
         sent_message = await message.answer(
             '*Результат пошуку:*\nОстаннє оновлення: %s' % datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
-            reply_markup=kb.search_result(objects), disable_notification=True
+            reply_markup=kb.search_result(objects),
         )
         await sent_message.pin(disable_notification=True)
     except Exception as e:
@@ -120,7 +120,7 @@ async def refresh(call: WialonBlockCallbackQuery):
 
         sent_message = await call.message.answer(
             'Результат пошуку:\nОстаннє оновлення: %s' % datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
-            reply_markup=kb.search_result(objects), disable_notification=True
+            reply_markup=kb.search_result(objects)
         )
         await call.message.delete()
         await call.answer("Список об'єктів оновлено")
@@ -154,16 +154,11 @@ async def update_lock_state(unit, lock_state, message: WialonBlockMessage, as_an
 
     match lock_state:
         case ObjState.LOCKED:
-            await message_action(message_text,
-                                 reply_markup=kb.locked(u_id),
-                                 disable_notification=True)
+            await message_action(message_text, reply_markup=kb.locked(u_id))
         case ObjState.UNLOCKED:
-            await message_action(message_text,
-                                 reply_markup=kb.unlocked(u_id),
-                                 disable_notification=True)
+            await message_action(message_text, reply_markup=kb.unlocked(u_id))
         case _:
-            await message_action(message_text,
-                                 disable_notification=True)
+            await message_action(message_text)
 
 
 @dp.callback_query(kb.GetUnitCallback.filter())

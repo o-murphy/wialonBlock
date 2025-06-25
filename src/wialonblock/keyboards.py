@@ -43,8 +43,9 @@ def search_result(items):
         for i in batch:
             lock = i.get("_lock_", ObjState.UNKNOWN)
             uid = i["id"]
+            uname = i["nm"]
             button = types.InlineKeyboardButton(
-                text=f"{lock} {uid}",
+                text=f"{lock} {uname}",
                 callback_data=GetUnitCallback(unit_id=uid).pack()
             )
             row.append(button)
