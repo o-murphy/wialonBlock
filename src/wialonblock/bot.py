@@ -142,18 +142,14 @@ UNIT_MESSAGE_FORMAT = """*{name}*
 @dp.callback_query(lambda call: re.search(r'unit', call.data))
 async def show_unit(call: WialonBlockCallbackQuery):
     try:
-        u_id, u_name, *_ = call.data.split('?')
+        u_id, *_ = call.data.split('?')
+
+        unit, lock_state = await call.bot.wialon_worker.get_unit_and_lock_state(call.message.chat.id, u_id)
 
         try:
-            unit = await call.bot.wialon_worker.get_unit(u_id)
-            print(unit)
             u_name = unit['item']['nm']
         except KeyError:
-            raise KeyError("Неможливо отримати дані об'єкта `%s`, id: `%s`" % (u_name, u_id))
-
-        logging.info("Received unit: `%s` with uid: `%s`" % (u_name, u_id))
-
-        lock_state = await call.bot.wialon_worker.check_is_locked(call.message.chat.id, u_id)
+            raise KeyError("Неможливо отримати дані об'єкта `%s`" % u_id)
 
         message_text = UNIT_MESSAGE_FORMAT.format(
             name=u_name,
@@ -187,24 +183,28 @@ async def lock_avl_unit(call: WialonBlockCallbackQuery):
     try:
         u_id, *_ = call.data.split('?')
 
+        logging.info("Attempt to lock uid: `%s`" % u_id)
+
+        await call.bot.wialon_worker.lock(call.message.chat.id, u_id)
+
+        unit, lock_state = await call.bot.wialon_worker.get_unit_and_lock_state(call.message.chat.id, u_id)
+
         try:
-            unit = await call.bot.wialon_worker.get_unit(u_id)
             u_name = unit['item']['nm']
         except KeyError:
-            raise KeyError("Неможливо отримати дані об'єкта id: `%s`" % u_id)
+            raise KeyError("Неможливо отримати дані об'єкта `%s`" % u_id)
 
-        lock_state = await call.bot.wialon_worker.check_is_locked(call.message.chat.id, u_id)
-
-        logging.info("Attempt to lock uid: `%s`" % u_id)
-        await call.bot.wialon_worker.lock(call.message.chat.id, u_id)
-        logging.info(f'{call.message.text} {u_id} locking success')
+        if lock_state == ObjState.LOCKED:
+            logging.info(f'{call.message.text} {u_id} locking success')
+        else:
+            raise ValueError("Object `%s`: (`%s`) was not locked" % (u_name, u_id))
         await call.message.edit_text(
             UNIT_MESSAGE_FORMAT.format(
                 name=u_name,
                 lock=lock_state,
                 datetime=datetime.now().strftime("%d.%m.%Y %H:%M:%S")
             ),
-            reply_markup=kb.unlocked(u_id),
+            reply_markup=kb.locked(u_id),
             disable_notification=True,
         )
     except Exception as e:
@@ -217,24 +217,24 @@ async def unlock_avl_unit(call: WialonBlockCallbackQuery):
     try:
         u_id, *_ = call.data.split('?')
 
+        logging.info("Attempt to unlock uid: `%s`" % u_id)
+
+        await call.bot.wialon_worker.unlock(call.message.chat.id, u_id)
+
+        unit, lock_state = await call.bot.wialon_worker.get_unit_and_lock_state(call.message.chat.id, u_id)
+
         try:
-            unit = await call.bot.wialon_worker.get_unit(u_id)
             u_name = unit['item']['nm']
         except KeyError:
-            raise KeyError("Неможливо отримати дані об'єкта id: `%s`" % u_id)
+            raise KeyError("Неможливо отримати дані об'єкта `%s`" % u_id)
 
-        lock_state = await call.bot.wialon_worker.check_is_locked(call.message.chat.id, u_id)
-
-        logging.info("Attempt to unlock uid: `%s`" % u_id)
-        await call.bot.wialon_worker.unlock(call.message.chat.id, u_id)
-        logging.info(f'{call.message.text} {u_id} unlocking success')
         await call.message.edit_text(
             UNIT_MESSAGE_FORMAT.format(
                 name=u_name,
                 lock=lock_state,
                 datetime=datetime.now().strftime("%d.%m.%Y %H:%M:%S")
             ),
-            reply_markup=kb.locked(u_id),
+            reply_markup=kb.unlocked(u_id),
             disable_notification=True,
         )
     except Exception as e:
