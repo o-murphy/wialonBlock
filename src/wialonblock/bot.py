@@ -121,9 +121,9 @@ async def refresh(call: WialonBlockCallbackQuery):
             'Результат пошуку:\nОстаннє оновлення: %s' % datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
             reply_markup=kb.search_result(objects), disable_notification=True
         )
-        await sent_message.pin(disable_notification=True)
-        await call.answer("Список об'єктів оновлено")
         await call.message.delete()
+        await call.answer("Список об'єктів оновлено")
+        await sent_message.pin(disable_notification=True)
     except TelegramBadRequest as e:
         logging.error(e)
         await call.answer("Оновлень немає")
@@ -157,6 +157,7 @@ async def show_unit(call: WialonBlockCallbackQuery):
                                           parse_mode="markdown",
                                           disable_notification=True)
 
+        await call.answer()
     except Exception as e:
         await call.answer(str(e))
 

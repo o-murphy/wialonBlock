@@ -25,7 +25,7 @@ def search_result(items):
         for i in batch:
             lock = i.get("_lock_", ObjState.UNKNOWN)
             button = types.InlineKeyboardButton(
-                text=i["nm"] if lock is ObjState.UNLOCKED else f"{lock} {i["nm"]}",
+                text=f"{lock} {i["nm"]}",
                 callback_data=f'{i["id"]}?{i["nm"]}?unit'
             )
             row.append(button)
