@@ -54,25 +54,27 @@ class WialonWorker:
     wln_token: str
     tg_groups: Dict[str, TelegramGroup]
 
-    async def get_group_objects(self, group_name, session: WialonSession):
+    async def get_group_objects(self, *group_names, session: WialonSession):
+        print("|".join(group_names))
         params = {
             "spec": {
                 "itemsType": "avl_unit_group",
                 "propName": "sys_name",
-                "propValueMask": group_name,
+                "propValueMask": "|".join(group_names),
                 "sortType": "sys_name",
                 "propType": ""
             },
             "force": 1,
             "flags": 5,
             "from": 0,
-            "to": 0
+            "to": len(group_names)
         }
         response = await session.core_search_items(**params)
         items = response.get('items', [])
         if not items:
             return []
-        return items[0].get('u', [])
+        # join all items
+        return [item for each in items for item in each.get('u', [])]
 
     async def get_objects(self, *ids, session: WialonSession):
         if not ids:
@@ -123,8 +125,8 @@ class WialonWorker:
         if group := await self.get_groups(tg_group_id):
             async with WialonSession(token=self.wln_token, host=self.wln_host) as session:
                 locked, unlocked, ignored = group
-                locked_uids = await self.get_group_objects(locked, session)
-                unlocked_uids = await self.get_group_objects(unlocked, session)
+                locked_uids = await self.get_group_objects(locked, session=session)
+                unlocked_uids = await self.get_group_objects(unlocked, session=session)
                 return await self._check_is_locked(uid, locked_uids, unlocked_uids)
         else:
             raise Exception(f"Group `%s` not found." % tg_group_id)
@@ -133,13 +135,17 @@ class WialonWorker:
         if group := await self.get_groups(tg_group_id):
             async with WialonSession(token=self.wln_token, host=self.wln_host) as session:
                 locked, unlocked, ignored = group
-                locked_uids = await self.get_group_objects(locked, session)
-                unlocked_uids = await self.get_group_objects(unlocked, session)
-                uids = await self.get_group_objects("|".join([locked, unlocked]), session)
+                locked_uids = await self.get_group_objects(locked, session=session)
+                unlocked_uids = await self.get_group_objects(unlocked, session=session)
+                # uids = await self.get_group_objects(locked, unlocked, session=session)
+                uids = locked_uids + unlocked_uids
                 if ignored:
-                    ignored_uids = await self.get_group_objects(ignored, session)
+                    ignored_uids = await self.get_group_objects(ignored, session=session)
                 else:
                     ignored_uids = []
+                print(locked_uids)
+                print(unlocked_uids)
+                print(uids)
                 uids = set(uids) - set(ignored_uids)
                 objects = await self.get_objects(*uids, session=session)
                 for obj in objects:
