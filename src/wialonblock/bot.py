@@ -121,8 +121,8 @@ async def refresh(call: WialonBlockCallbackQuery):
             'Результат пошуку:\nОстаннє оновлення: %s' % datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
             reply_markup=kb.search_result(objects), disable_notification=True
         )
+        await sent_message.pin(disable_notification=True)
         await call.answer("Список об'єктів оновлено")
-        await call.sent_message.pin(disable_notification=True)
         await call.message.delete()
     except TelegramBadRequest as e:
         logging.error(e)
