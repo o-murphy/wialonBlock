@@ -7,7 +7,7 @@ from pathlib import Path
 from wialonblock.bot import run_bot
 from wialonblock.config import DEFAULT_CONFIG_PATH
 
-logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+logging.basicConfig(level=logging.INFO, stream=sys.stdout, encoding="utf-8")
 
 
 async def run():

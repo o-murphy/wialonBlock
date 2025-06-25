@@ -21,6 +21,11 @@ Or use path to config
 wialonblock path/to/your/.env.toml
 ```
 
+Redirect logging stdout
+```shell
+wialonblock > path/where/save/wialonblock.log
+```
+
 ### Update
 
 Update the app using `uv tool upgrade`
