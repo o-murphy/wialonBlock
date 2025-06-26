@@ -166,6 +166,10 @@ async def command_list_handler(message: WialonBlockMessage) -> None:
     await outdated_message(message)
     # await delete_message(message)
 
+@dp.message(Command("ignore"))
+async def command_ignore_handler(message: WialonBlockMessage) -> None:
+    pass
+
 
 @dp.callback_query(kb.RefreshCallback.filter())
 async def refresh(call: WialonBlockCallbackQuery):
