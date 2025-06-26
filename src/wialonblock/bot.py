@@ -14,11 +14,12 @@ from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.types import Message, BotCommand, CallbackQuery, MessageEntity, bot_command, InlineQueryResultArticle, \
     InputTextMessageContent, InlineQuery
+from aiowialon import WialonError
 
 from wialonblock import keyboards as kb
 from wialonblock.config import Config, DEFAULT_CONFIG_PATH, load_config
 from wialonblock.keyboards import PagesAction
-from wialonblock.util import escape_markdown_legacy
+from wialonblock.util import escape_markdown_v2
 from wialonblock.worker import WialonWorker, ObjState
 
 dp = Dispatcher()
@@ -49,7 +50,7 @@ PAGES_RESULT_MESSAGE_FORMAT = """
 *Результат пошуку:* `{pattern}`
 
 *Всього*: {total}
-*Відображено*: {start} - {end}
+*Відображено*: {start} \\- {end}
 
 *Останнє оновлення*: {datetime}
 *Користувач*: @{user}
@@ -64,7 +65,7 @@ SEARCH_RESULT_MESSAGE_FORMAT = """
 """
 
 ERROR_ANSWER_FORMAT = """
-Сталась помилка, зверніться до адміністратора групи.
+Сталась помилка, зверніться до адміністратора групи
 ID помилки: `{uuid}`
 """
 ERROR_LOG_MSG_FORMAT = """
@@ -72,7 +73,7 @@ ERROR_LOG_MSG_FORMAT = """
 """
 
 NO_OBJECTS_MESSAGE = """
-*🤷‍♂️ Об'єкти за вашим запитом не знайдені.*
+*🤷‍♂️ Об'єкти за вашим запитом не знайдені*
 
 _Якщо ви впевнені що це помилка, зверніться до адміністратора групи_
 """
@@ -150,7 +151,11 @@ async def on_message_error(message: WialonBlockMessage, exception: Exception):
         uuid=error_uuid,
         msg=str(exception)
     ))
-    logging.exception(exception)
+    if isinstance(exception, WialonError):
+        logging.error(exception.reason)
+        logging.exception(exception)
+    else:
+        logging.exception(exception)
     logging.error("MSG: {}".format(message))
 
 
@@ -182,8 +187,8 @@ async def command_list_handler(message: WialonBlockMessage) -> None:
             return
 
         # Escape the dynamic parts before formatting
-        current_datetime_str = escape_markdown_legacy(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
-        username_escaped = escape_markdown_legacy(message.from_user.username)
+        current_datetime_str = escape_markdown_v2(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+        username_escaped = escape_markdown_v2(message.from_user.username)
 
         await message.answer(
             SEARCH_RESULT_MESSAGE_FORMAT.format(
@@ -214,15 +219,15 @@ async def command_pages_handler(message: WialonBlockMessage) -> None:
             return
 
         # Escape the dynamic parts before formatting
-        current_datetime_str = escape_markdown_legacy(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
-        username_escaped = escape_markdown_legacy(message.from_user.username)
+        current_datetime_str = escape_markdown_v2(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+        username_escaped = escape_markdown_v2(message.from_user.username)
 
         callback_data = kb.PagesCallback(
                 start=0, end=20, pattern=pattern, action=PagesAction.REFRESH
         )
         await message.answer(
             PAGES_RESULT_MESSAGE_FORMAT.format(
-                pattern=escape_markdown_legacy(pattern),
+                pattern=escape_markdown_v2(pattern),
                 total=len(objects),
                 start=callback_data.start+1,
                 end=callback_data.end,
@@ -252,8 +257,8 @@ async def pages_call_handler(call: WialonBlockCallbackQuery, callback_data: kb.P
             return
 
         # Escape the dynamic parts before formatting
-        current_datetime_str = escape_markdown_legacy(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
-        username_escaped = escape_markdown_legacy(call.from_user.username)
+        current_datetime_str = escape_markdown_v2(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+        username_escaped = escape_markdown_v2(call.from_user.username)
 
         await call.message.answer(
             PAGES_RESULT_MESSAGE_FORMAT.format(
@@ -339,13 +344,13 @@ async def command_ignore_handler(message: WialonBlockMessage) -> None:
 #             # The message that will be sent to the chat when the user selects this result
 #             # You can send plain text, Markdown, or HTML.
 #             # It's good practice to escape any user-generated or dynamic content.
-#             selected_message_text = f"Selected Wialon object: *{escape_markdown_legacy(obj['nm'])}*\n" \
-#                                     f"ID: `{escape_markdown_legacy(str(obj['id']))}`"
+#             selected_message_text = f"Selected Wialon object: *{escape_markdown_v2(obj['nm'])}*\n" \
+#                                     f"ID: `{escape_markdown_v2(str(obj['id']))}`"
 #
 #             # You can also use deep linking to send a '/start' command to your bot with a parameter
 #             # that your bot can then parse to show more details about the object.
 #             # Example: deep_link = await create_start_link(inline_query.bot, f"obj_{obj.id}", encode=True)
-#             # selected_message_text = f"View details for *{escape_markdown_legacy(obj.name)}*: {deep_link}"
+#             # selected_message_text = f"View details for *{escape_markdown_v2(obj.name)}*: {deep_link}"
 #
 #             results.append(
 #                 InlineQueryResultArticle(
@@ -371,7 +376,7 @@ async def command_ignore_handler(message: WialonBlockMessage) -> None:
 #                     title="No objects found",
 #                     description=f"No Wialon objects matching '{query_text}'",
 #                     input_message_content=InputTextMessageContent(
-#                         message_text=f"No Wialon objects matched your search for '{escape_markdown_legacy(query_text)}'."
+#                         message_text=f"No Wialon objects matched your search for '{escape_markdown_v2(query_text)}'."
 #                     )
 #                 )
 #             )
@@ -408,8 +413,8 @@ async def refresh(call: WialonBlockCallbackQuery):
             return
 
         # Escape the dynamic parts before formatting
-        current_datetime_str = escape_markdown_legacy(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
-        username_escaped = escape_markdown_legacy(call.message.from_user.username)
+        current_datetime_str = escape_markdown_v2(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+        username_escaped = escape_markdown_v2(call.message.from_user.username)
 
         await call.message.answer(
             LIST_RESULT_MESSAGE_FORMAT.format(
@@ -462,12 +467,12 @@ async def search_avl_units(message: WialonBlockMessage):
             return
 
         # Escape the dynamic parts before formatting
-        current_datetime_str = escape_markdown_legacy(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
-        username_escaped = escape_markdown_legacy(message.from_user.username)
+        current_datetime_str = escape_markdown_v2(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+        username_escaped = escape_markdown_v2(message.from_user.username)
 
         await message.answer(
             SEARCH_RESULT_MESSAGE_FORMAT.format(
-                # pattern=escape_markdown_legacy(message.text),
+                # pattern=escape_markdown_v2(message.text),
                 pattern=message.text,
                 datetime=current_datetime_str,
                 user=username_escaped,
@@ -482,12 +487,12 @@ async def search_avl_units(message: WialonBlockMessage):
 
 async def update_lock_state(unit, lock_state, call: WialonBlockCallbackQuery, as_answer=False):
     u_name = unit.get('item', {}).get('nm', "Невідомий об'єкт")
-    dt = escape_markdown_legacy(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+    dt = escape_markdown_v2(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
     message_text = UNIT_MESSAGE_FORMAT.format(
-        name=escape_markdown_legacy(u_name),
+        name=escape_markdown_v2(u_name),
         lock=lock_state,
         state=STATE_STRING_MAP.get(lock_state, ObjState.UNKNOWN),
-        user=escape_markdown_legacy(call.from_user.username),
+        user=escape_markdown_v2(call.from_user.username),
         datetime=dt
     )
     u_id = unit.get('item', {}).get('id', None)
