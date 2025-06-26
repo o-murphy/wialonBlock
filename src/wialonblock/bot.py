@@ -349,7 +349,7 @@ async def inline_search_wialon_objects(inline_query: WialonBlockInlineQuery):
                 InlineQueryResultArticle(
                     id=result_id,
                     title=f"{obj['_lock_']} {title}",
-                    # description=f"Found: {STATE_STRING_MAP.get(obj['_lock_'], ObjState.UNKNOWN)}",  # Optional subtitle
+                    description=f"Статус: {STATE_STRING_MAP.get(obj['_lock_'], ObjState.UNKNOWN)}",  # Optional subtitle
                     input_message_content=InputTextMessageContent(
                         message_text=selected_message_text,
                         parse_mode="MarkdownV2"  # Use MarkdownV2 for better formatting and security
