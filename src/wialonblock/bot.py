@@ -11,6 +11,7 @@ from aiogram.client.session.base import BaseSession
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.types import Message, BotCommand, CallbackQuery
+from aiogram import F
 
 from wialonblock import keyboards as kb
 from wialonblock.config import Config, DEFAULT_CONFIG_PATH, load_config
@@ -111,7 +112,7 @@ async def set_default_commands(bot: Bot):
     commands = [
         # BotCommand(command="start", description="Start the bot"),
         BotCommand(command="list", description="Відобразити список трекерів"),
-        BotCommand(command="get_group_id", description="Отримати ID групи"),
+        # BotCommand(command="get_group_id", description="Отримати ID групи"),
     ]
     await bot.set_my_commands(commands)
     logging.info("Default commands set.")
@@ -191,7 +192,7 @@ async def refresh(call: WialonBlockCallbackQuery):
     await outdated_message(call.message)
 
 
-@dp.message()
+@dp.message(F.text)
 async def search_avl_units(message: WialonBlockMessage):
     try:
         logging.info("Received message: `%s`, from chat `%s`" % (message.text, message.chat.id))
