@@ -12,7 +12,7 @@ from aiogram.client.session.base import BaseSession
 from aiogram.enums import ContentType
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
-from aiogram.types import Message, BotCommand, CallbackQuery
+from aiogram.types import Message, BotCommand, CallbackQuery, MessageEntity, bot_command
 
 from wialonblock import keyboards as kb
 from wialonblock.config import Config, DEFAULT_CONFIG_PATH, load_config
@@ -235,7 +235,6 @@ async def command_pages_handler(message: WialonBlockMessage) -> None:
 
 @dp.callback_query(kb.PagesCallback.filter())
 async def pages_call_handler(call: WialonBlockCallbackQuery, callback_data: kb.PagesCallback) -> None:
-    print(callback_data)
     try:
         logging.info("Received ca;;: `%s`, from chat `%s`" % (callback_data, call.message.chat.id))
         pattern = "*"
@@ -278,6 +277,19 @@ async def pages_call_handler(call: WialonBlockCallbackQuery, callback_data: kb.P
 @dp.message(Command("i"))
 async def command_ignore_handler(message: WialonBlockMessage) -> None:
     pass
+
+
+@dp.message(Command("lookup"))
+async def command_ignore_handler(message: WialonBlockMessage) -> None:
+    message_text = message.text
+    command_entity = message.entities[0]  # Assuming the bot_command is the first entity
+    if isinstance(command_entity, MessageEntity) and command_entity.type == "bot_command":
+        # The text after the command will start at the offset + length of the command
+        start_index = command_entity.offset + command_entity.length
+        sometext = message_text[start_index:].strip()
+        print(sometext)
+    else:
+        await message.reply("Неправильний формат команди.")
 
 
 @dp.callback_query(kb.RefreshCallback.filter())
