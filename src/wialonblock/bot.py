@@ -253,7 +253,7 @@ async def pages_call_handler(call: WialonBlockCallbackQuery, callback_data: kb.P
 
         await call.message.answer(
             PAGES_RESULT_MESSAGE_FORMAT.format(
-                pattern=escape_markdown_legacy(pattern),
+                pattern=pattern,
                 total=len(objects),
                 start=callback_data.start+1,
                 end=callback_data.end,
