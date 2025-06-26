@@ -3,6 +3,7 @@ import itertools  # Import itertools
 from aiogram import types
 from aiogram.filters.callback_data import CallbackData
 
+from wialonblock.util import escape_markdown_legacy
 from wialonblock.worker import ObjState
 
 
@@ -43,7 +44,7 @@ def search_result(items, refresh=True):
         for i in batch:
             lock = i.get("_lock_", ObjState.UNKNOWN)
             uid = i["id"]
-            uname = i["nm"]
+            uname = escape_markdown_legacy(i["nm"])
             button = types.InlineKeyboardButton(
                 text=f"{lock} {uname}",
                 callback_data=GetUnitCallback(unit_id=uid).pack()

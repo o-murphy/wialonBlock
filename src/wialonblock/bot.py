@@ -15,6 +15,7 @@ from aiogram import F
 
 from wialonblock import keyboards as kb
 from wialonblock.config import Config, DEFAULT_CONFIG_PATH, load_config
+from wialonblock.util import escape_markdown_legacy
 from wialonblock.worker import WialonWorker, ObjState
 
 dp = Dispatcher()
@@ -153,10 +154,14 @@ async def command_list_handler(message: WialonBlockMessage) -> None:
             await message.answer(NO_OBJECTS_MESSAGE)
             return
 
+        # Escape the dynamic parts before formatting
+        current_datetime_str = escape_markdown_legacy(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+        username_escaped = escape_markdown_legacy(message.from_user.username)
+
         await message.answer(
             LIST_RESULT_MESSAGE_FORMAT.format(
-                datetime=datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
-                user=message.from_user.username,
+                datetime=current_datetime_str,
+                user=username_escaped,
             ),
             reply_markup=kb.search_result(objects),
         )
@@ -180,10 +185,14 @@ async def refresh(call: WialonBlockCallbackQuery):
             await call.answer(NO_OBJECTS_MESSAGE)
             return
 
+        # Escape the dynamic parts before formatting
+        current_datetime_str = escape_markdown_legacy(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+        username_escaped = escape_markdown_legacy(call.message.from_user.username)
+
         await call.message.answer(
             LIST_RESULT_MESSAGE_FORMAT.format(
-                datetime=datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
-                user=call.from_user.username,
+                datetime=current_datetime_str,
+                user=username_escaped,
             ),
             reply_markup=kb.search_result(objects)
         )
@@ -213,10 +222,14 @@ async def search_avl_units(message: WialonBlockMessage):
             await message.answer(NO_OBJECTS_MESSAGE)
             return
 
+        # Escape the dynamic parts before formatting
+        current_datetime_str = escape_markdown_legacy(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+        username_escaped = escape_markdown_legacy(message.from_user.username)
+
         await message.answer(
             LIST_RESULT_MESSAGE_FORMAT.format(
-                datetime=datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
-                user=message.from_user.username,
+                datetime=current_datetime_str,
+                user=username_escaped,
             ),
             reply_markup=kb.search_result(objects, False),
         )
@@ -228,12 +241,12 @@ async def search_avl_units(message: WialonBlockMessage):
 
 async def update_lock_state(unit, lock_state, call: WialonBlockCallbackQuery, as_answer=False):
     u_name = unit.get('item', {}).get('nm', "Невідомий об'єкт")
-    dt = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+    dt = escape_markdown_legacy(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
     message_text = UNIT_MESSAGE_FORMAT.format(
-        name=u_name,
+        name=escape_markdown_legacy(u_name),
         lock=lock_state,
         state=STATE_STRING_MAP.get(lock_state, ObjState.UNKNOWN),
-        user=call.from_user.username,
+        user=escape_markdown_legacy(call.from_user.username),
         datetime=dt
     )
     u_id = unit.get('item', {}).get('id', None)
