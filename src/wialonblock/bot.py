@@ -126,10 +126,12 @@ async def on_message_error(message: WialonBlockMessage, exception: Exception):
         msg=str(exception)
     ))
     logging.exception(exception)
+    logging.error("MSG: {}".format(message))
 
 
 async def on_call_error(call: WialonBlockCallbackQuery, exception: Exception):
     await on_message_error(call.message, exception)
+    logging.error("MSG: {}".format(call))
     await call.answer()
 
 
