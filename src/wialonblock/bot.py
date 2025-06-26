@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -90,6 +89,13 @@ async def command_start_handler(message: WialonBlockMessage) -> None:
     await message.answer(log_msg)
 
 
+LIST_RESULT_MESSAGE_FORMAT = """
+*Результат пошуку:*
+
+*Останнє оновлення*: {datetime}
+*Користувач*: @{user}
+"""
+
 @dp.message(Command("list"))
 async def command_list_handler(message: WialonBlockMessage) -> None:
     try:
@@ -99,10 +105,12 @@ async def command_list_handler(message: WialonBlockMessage) -> None:
             raise ValueError("Об'єкти не знайдені")
 
         sent_message = await message.answer(
-            '*Результат пошуку:*\nОстаннє оновлення: %s' % datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+            LIST_RESULT_MESSAGE_FORMAT.format(
+                datetime=datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+                user=message.from_user.username,
+            ),
             reply_markup=kb.search_result(objects),
         )
-        await sent_message.pin(disable_notification=True)
     except Exception as e:
         logging.exception(e)
         await message.answer(str(e))
@@ -118,13 +126,15 @@ async def refresh(call: WialonBlockCallbackQuery):
         if not objects:
             raise ValueError("Об'єкти не знайдені")
 
-        sent_message = await call.message.answer(
-            'Результат пошуку:\nОстаннє оновлення: %s' % datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+        await call.message.answer(
+            LIST_RESULT_MESSAGE_FORMAT.format(
+                datetime=datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+                user=call.from_user.username,
+            ),
             reply_markup=kb.search_result(objects)
         )
         await call.message.delete()
         await call.answer("Список об'єктів оновлено")
-        await sent_message.pin(disable_notification=True)
     except TelegramBadRequest as e:
         logging.error(e)
         await call.answer("Оновлень немає")
@@ -137,19 +147,32 @@ async def refresh(call: WialonBlockCallbackQuery):
 
 UNIT_MESSAGE_FORMAT = """*{name}*
 
-*Стан*: {lock}
+*Стан*: {lock}: {state}
 *Оновлено*: {datetime}
+*Користувач*: @{user}
 """
 
 
-async def update_lock_state(unit, lock_state, message: WialonBlockMessage, as_answer=False):
+STATE_STRING_MAP = {
+    ObjState.LOCKED: "Виїзд заборонено",
+    ObjState.UNLOCKED: "Виїзд дозволено",
+    ObjState.UNKNOWN: "Невідомо"
+}
+
+
+async def update_lock_state(unit, lock_state, call: WialonBlockCallbackQuery, as_answer=False):
+    u_name = unit.get('item', {}).get('nm', "Невідомий об'єкт")
+    dt = datetime.now().strftime("%d.%m.%Y %H:%M:%S")
     message_text = UNIT_MESSAGE_FORMAT.format(
-        name=unit.get('item', {}).get('nm', "Невідомий об'єкт"),
+        name=u_name,
         lock=lock_state,
-        datetime=datetime.now().strftime("%d.%m.%Y %H:%M:%S")
+        state=STATE_STRING_MAP.get(lock_state, ObjState.UNKNOWN),
+        user=call.from_user.username,
+        datetime=dt
     )
     u_id = unit.get('item', {}).get('id', None)
 
+    message = call.message
     message_action = message.answer if as_answer else message.edit_text
 
     match lock_state:
@@ -166,7 +189,7 @@ async def show_unit(call: WialonBlockCallbackQuery, callback_data: kb.GetUnitCal
     try:
         u_id = callback_data.unit_id
         unit, lock_state = await call.bot.wialon_worker.get_unit_and_lock_state(call.message.chat.id, u_id)
-        await update_lock_state(unit, lock_state, call.message, as_answer=True)
+        await update_lock_state(unit, lock_state, call, as_answer=True)
         await call.answer()
     except Exception as e:
         logging.exception(e)
@@ -189,7 +212,7 @@ async def lock_avl_unit(call: WialonBlockCallbackQuery, callback_data: kb.LockUn
                 )
             case _:
                 raise ValueError("Object `%s` was not locked" % u_id)
-        await update_lock_state(unit, lock_state, call.message)
+        await update_lock_state(unit, lock_state, call)
         await call.answer()
     except Exception as e:
         logging.exception(e)
@@ -210,7 +233,7 @@ async def unlock_avl_unit(call: WialonBlockCallbackQuery, callback_data: kb.Unlo
                 )
             case _:
                 raise ValueError("Object `%s` was not unlocked" % u_id)
-        await update_lock_state(unit, lock_state, call.message)
+        await update_lock_state(unit, lock_state, call)
         await call.answer()
     except Exception as e:
         logging.exception(e)
