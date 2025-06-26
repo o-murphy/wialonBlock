@@ -249,7 +249,7 @@ async def pages_call_handler(call: WialonBlockCallbackQuery, callback_data: kb.P
 
         # Escape the dynamic parts before formatting
         current_datetime_str = escape_markdown_legacy(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
-        username_escaped = escape_markdown_legacy(call.message.from_user.username)
+        username_escaped = escape_markdown_legacy(call.from_user.username)
 
         await call.message.answer(
             PAGES_RESULT_MESSAGE_FORMAT.format(
