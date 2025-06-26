@@ -43,6 +43,14 @@ LIST_RESULT_MESSAGE_FORMAT = """
 *Користувач*: @{user}
 """
 
+SEARCH_RESULT_MESSAGE_FORMAT = """
+*Пошуковий запит:* `{pattern}`
+*Результат пошуку:*
+
+*Останнє оновлення*: {datetime}
+*Користувач*: @{user}
+"""
+
 ERROR_ANSWER_FORMAT = """
 Сталась помилка, зверніться до адміністратора групи.
 ID помилки: `{uuid}`
@@ -244,7 +252,9 @@ async def search_avl_units(message: WialonBlockMessage):
         username_escaped = escape_markdown_legacy(message.from_user.username)
 
         await message.answer(
-            LIST_RESULT_MESSAGE_FORMAT.format(
+            SEARCH_RESULT_MESSAGE_FORMAT.format(
+                # pattern=escape_markdown_legacy(message.text),
+                pattern=message.text,
                 datetime=current_datetime_str,
                 user=username_escaped,
             ),
