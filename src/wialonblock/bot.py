@@ -166,7 +166,7 @@ async def command_list_handler(message: WialonBlockMessage) -> None:
     await outdated_message(message)
     # await delete_message(message)
 
-@dp.message(Command("ignore"))
+@dp.message(Command("i"))
 async def command_ignore_handler(message: WialonBlockMessage) -> None:
     pass
 
