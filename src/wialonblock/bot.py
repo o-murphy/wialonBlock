@@ -8,6 +8,7 @@ from typing import Any, Optional
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.base import BaseSession
+from aiogram.enums import ContentType
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.types import Message, BotCommand, CallbackQuery
@@ -206,8 +207,24 @@ async def refresh(call: WialonBlockCallbackQuery):
 
     await outdated_message(call.message)
 
+ALL_SERVICE_CONTENT_TYPES = {
+    ContentType.NEW_CHAT_MEMBERS,
+    ContentType.LEFT_CHAT_MEMBER,
+    ContentType.NEW_CHAT_TITLE,
+    ContentType.NEW_CHAT_PHOTO,
+    ContentType.DELETE_CHAT_PHOTO,
+    ContentType.GROUP_CHAT_CREATED,
+    ContentType.SUPERGROUP_CHAT_CREATED,
+    ContentType.CHANNEL_CHAT_CREATED,
+    ContentType.MESSAGE_AUTO_DELETE_TIMER_CHANGED,
+    ContentType.MIGRATE_TO_CHAT_ID,
+    ContentType.MIGRATE_FROM_CHAT_ID,
+    ContentType.PINNED_MESSAGE,
+}
 
-@dp.message(F.text)
+SKIP_ALL_SERVICE_UPDATES = ~F.content_type.in_(ALL_SERVICE_CONTENT_TYPES)
+
+@dp.message(F.text & SKIP_ALL_SERVICE_UPDATES)
 async def search_avl_units(message: WialonBlockMessage):
     try:
         logging.info("Received message: `%s`, from chat `%s`" % (message.text, message.chat.id))
