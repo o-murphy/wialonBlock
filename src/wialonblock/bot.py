@@ -157,7 +157,10 @@ async def command_start_handler(message: WialonBlockMessage) -> None:
 async def command_list_handler(message: WialonBlockMessage) -> None:
     try:
         logging.info("Received command: `%s`, from chat `%s`" % (message.text, message.chat.id))
-        objects = await message.bot.wialon_worker.list_by_tg_group_id(message.chat.id)
+        pattern = "*"
+        objects = await message.bot.wialon_worker.list_by_tg_group_id(
+            message.chat.id, pattern
+        )
         if not objects:
             logging.error("No objects found for `%s`" % message.text)
             await message.answer(NO_OBJECTS_MESSAGE)
@@ -168,7 +171,8 @@ async def command_list_handler(message: WialonBlockMessage) -> None:
         username_escaped = escape_markdown_legacy(message.from_user.username)
 
         await message.answer(
-            LIST_RESULT_MESSAGE_FORMAT.format(
+            SEARCH_RESULT_MESSAGE_FORMAT.format(
+                pattern=pattern,
                 datetime=current_datetime_str,
                 user=username_escaped,
             ),

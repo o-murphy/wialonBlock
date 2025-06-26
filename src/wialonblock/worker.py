@@ -102,7 +102,7 @@ class WialonWorker:
         # join all items
         return [item for each in items for item in each.get('u', [])]
 
-    async def _get_objects_by_ids(self, ids, pattern: str = "", session: WialonSession = None):
+    async def _get_objects_by_ids(self, ids, pattern: str = "*", session: WialonSession = None):
         if not ids:
             return []
         ids_mask = "|".join([str(i) for i in ids])
@@ -228,7 +228,7 @@ class WialonWorker:
                 return True
         return False
 
-    async def list_by_tg_group_id(self, tg_group_id, pattern: str = "") -> Dict[str, Any]:
+    async def list_by_tg_group_id(self, tg_group_id, pattern: str = "*") -> Dict[str, Any]:
         group = await self.get_groups(tg_group_id)
         async with WialonSession(token=self.wln_token, host=self.wln_host) as session:
             locked, unlocked, ignored = group
@@ -241,7 +241,7 @@ class WialonWorker:
                 ignored_uids = []
 
             uids = set(uids) - set(ignored_uids)
-            objects = await self._get_objects_by_ids(uids, pattern=pattern, session=session)
+            objects = await self._get_objects_by_ids(uids, pattern, session=session)
             for obj in objects:
                 obj['_lock_'] = await self._check_is_locked(obj['id'], locked_uids, unlocked_uids)
             return objects
