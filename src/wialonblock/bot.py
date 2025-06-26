@@ -297,103 +297,105 @@ async def command_ignore_handler(message: WialonBlockMessage) -> None:
         await message.reply("Неправильний формат команди.")
 
 
-# This decorator registers the function to handle inline queries
-@dp.inline_query(F.query.func(lambda q: True))  # Handle all inline queries
-async def inline_search_wialon_objects(inline_query: WialonBlockInlineQuery):
-    """
-    Handles inline queries to provide autocomplete/search for Wialon objects.
-    """
-    query_text = inline_query.query.strip().lower()  # Get user's search query, case-insensitive
-
-    logging.info(f"Received inline query from @{inline_query.from_user.username}: '{query_text}'")
-
-    results = []
-
-    try:
-        # 1. Fetch Wialon objects
-        # You'll likely need a method in your wialon_worker to list all/filtered objects
-        # For demonstration, let's assume list_all_objects() returns objects with 'id' and 'name' attributes.
-        # If your list_by_tg_group_id works, you might need to adapt.
-        # For inline mode, results shouldn't typically be restricted by the chat ID where the query is typed.
-        # You might want to list objects associated with the user, or all publicly searchable objects.
-        all_objects = await inline_query.bot.wialon_worker.list_by_tg_group_id(415715051)  # Or a more refined list
-
-        # 2. Filter objects based on the query text
-        # If query_text is empty, you might return recent objects or a general list.
-        # If the list is very large, consider pagination using 'next_offset'.
-        filtered_objects = [
-            obj for obj in all_objects
-            if not query_text or query_text in obj['nm'].lower()
-        ]
-
-        # Limit the number of results to avoid hitting Telegram's limits (max 50 results per query)
-        for obj in filtered_objects[:50]:
-            # Each result needs a unique ID (as string)
-            result_id = str(obj['id'])
-
-            # The title displayed in the autocomplete list
-            title = obj['nm']
-
-            # The message that will be sent to the chat when the user selects this result
-            # You can send plain text, Markdown, or HTML.
-            # It's good practice to escape any user-generated or dynamic content.
-            selected_message_text = f"Selected Wialon object: *{escape_markdown_legacy(obj['nm'])}*\n" \
-                                    f"ID: `{escape_markdown_legacy(str(obj['id']))}`"
-
-            # You can also use deep linking to send a '/start' command to your bot with a parameter
-            # that your bot can then parse to show more details about the object.
-            # Example: deep_link = await create_start_link(inline_query.bot, f"obj_{obj.id}", encode=True)
-            # selected_message_text = f"View details for *{escape_markdown_legacy(obj.name)}*: {deep_link}"
-
-            results.append(
-                InlineQueryResultArticle(
-                    id=result_id,
-                    title=f"{obj['_lock_']} {title}",
-                    description=f"Статус: {STATE_STRING_MAP.get(obj['_lock_'], ObjState.UNKNOWN)}",  # Optional subtitle
-                    input_message_content=InputTextMessageContent(
-                        message_text=selected_message_text,
-                        parse_mode="MarkdownV2"  # Use MarkdownV2 for better formatting and security
-                    ),
-                    # You can also add a thumbnail_url if your objects have images
-                    # thumbnail_url="URL_to_object_icon.png",
-                    # thumbnail_width=48,
-                    # thumbnail_height=48,
-                )
-            )
-
-        # If no results found for the query
-        if not results and query_text:
-            results.append(
-                InlineQueryResultArticle(
-                    id="no_results",
-                    title="No objects found",
-                    description=f"No Wialon objects matching '{query_text}'",
-                    input_message_content=InputTextMessageContent(
-                        message_text=f"No Wialon objects matched your search for '{escape_markdown_legacy(query_text)}'."
-                    )
-                )
-            )
-
-    except Exception as e:
-        logging.error(f"Error processing inline query '{query_text}': {e}")
-        results.append(
-            InlineQueryResultArticle(
-                id="error",
-                title="Error occurred",
-                description="Could not fetch objects. Please try again.",
-                input_message_content=InputTextMessageContent(
-                    message_text="An error occurred while fetching Wialon objects."
-                )
-            )
-        )
-
-    # 3. Answer the inline query with the results
-    await inline_query.answer(
-        results,
-        cache_time=1,  # How long results can be cached (in seconds). Lower for faster autocomplete updates.
-        is_personal=True,  # Set to True if results depend on the user (e.g., user-specific objects)
-        # next_offset="some_offset" # Use this for pagination if you have more than 50 results
-    )
+# # This decorator registers the function to handle inline queries
+# @dp.inline_query(F.query.func(lambda q: True))  # Handle all inline queries
+# async def inline_search_wialon_objects(inline_query: WialonBlockInlineQuery):
+#     """
+#     Handles inline queries to provide autocomplete/search for Wialon objects.
+#     """
+#     query_text = inline_query.query.strip().lower()  # Get user's search query, case-insensitive
+#
+#     logging.info(f"Received inline query from @{inline_query.from_user.username}: '{query_text}'")
+#
+#     results = []
+#
+#     print(inline_query)
+#
+#     try:
+#         # 1. Fetch Wialon objects
+#         # You'll likely need a method in your wialon_worker to list all/filtered objects
+#         # For demonstration, let's assume list_all_objects() returns objects with 'id' and 'name' attributes.
+#         # If your list_by_tg_group_id works, you might need to adapt.
+#         # For inline mode, results shouldn't typically be restricted by the chat ID where the query is typed.
+#         # You might want to list objects associated with the user, or all publicly searchable objects.
+#         all_objects = await inline_query.bot.wialon_worker.list_by_tg_group_id(415715051)  # Or a more refined list
+#
+#         # 2. Filter objects based on the query text
+#         # If query_text is empty, you might return recent objects or a general list.
+#         # If the list is very large, consider pagination using 'next_offset'.
+#         filtered_objects = [
+#             obj for obj in all_objects
+#             if not query_text or query_text in obj['nm'].lower()
+#         ]
+#
+#         # Limit the number of results to avoid hitting Telegram's limits (max 50 results per query)
+#         for obj in filtered_objects[:50]:
+#             # Each result needs a unique ID (as string)
+#             result_id = str(obj['id'])
+#
+#             # The title displayed in the autocomplete list
+#             title = obj['nm']
+#
+#             # The message that will be sent to the chat when the user selects this result
+#             # You can send plain text, Markdown, or HTML.
+#             # It's good practice to escape any user-generated or dynamic content.
+#             selected_message_text = f"Selected Wialon object: *{escape_markdown_legacy(obj['nm'])}*\n" \
+#                                     f"ID: `{escape_markdown_legacy(str(obj['id']))}`"
+#
+#             # You can also use deep linking to send a '/start' command to your bot with a parameter
+#             # that your bot can then parse to show more details about the object.
+#             # Example: deep_link = await create_start_link(inline_query.bot, f"obj_{obj.id}", encode=True)
+#             # selected_message_text = f"View details for *{escape_markdown_legacy(obj.name)}*: {deep_link}"
+#
+#             results.append(
+#                 InlineQueryResultArticle(
+#                     id=result_id,
+#                     title=f"{obj['_lock_']} {title}",
+#                     description=f"Статус: {STATE_STRING_MAP.get(obj['_lock_'], ObjState.UNKNOWN)}",  # Optional subtitle
+#                     input_message_content=InputTextMessageContent(
+#                         message_text=selected_message_text,
+#                         parse_mode="MarkdownV2"  # Use MarkdownV2 for better formatting and security
+#                     ),
+#                     # You can also add a thumbnail_url if your objects have images
+#                     # thumbnail_url="URL_to_object_icon.png",
+#                     # thumbnail_width=48,
+#                     # thumbnail_height=48,
+#                 )
+#             )
+#
+#         # If no results found for the query
+#         if not results and query_text:
+#             results.append(
+#                 InlineQueryResultArticle(
+#                     id="no_results",
+#                     title="No objects found",
+#                     description=f"No Wialon objects matching '{query_text}'",
+#                     input_message_content=InputTextMessageContent(
+#                         message_text=f"No Wialon objects matched your search for '{escape_markdown_legacy(query_text)}'."
+#                     )
+#                 )
+#             )
+#
+#     except Exception as e:
+#         logging.error(f"Error processing inline query '{query_text}': {e}")
+#         results.append(
+#             InlineQueryResultArticle(
+#                 id="error",
+#                 title="Error occurred",
+#                 description="Could not fetch objects. Please try again.",
+#                 input_message_content=InputTextMessageContent(
+#                     message_text="An error occurred while fetching Wialon objects."
+#                 )
+#             )
+#         )
+#
+#     # 3. Answer the inline query with the results
+#     await inline_query.answer(
+#         results,
+#         cache_time=1,  # How long results can be cached (in seconds). Lower for faster autocomplete updates.
+#         is_personal=True,  # Set to True if results depend on the user (e.g., user-specific objects)
+#         # next_offset="some_offset" # Use this for pagination if you have more than 50 results
+#     )
 
 
 @dp.callback_query(kb.RefreshCallback.filter())

@@ -47,6 +47,7 @@ def search_result(items, refresh=True):
             uid = i["id"]
             uname = i["nm"]
             button = types.InlineKeyboardButton(
+                # text=f"{lock} {uname} ...............................",
                 text=f"{lock} {uname}",
                 callback_data=GetUnitCallback(unit_id=uid).pack()
             )
@@ -190,6 +191,7 @@ def pages_result(items: Dict, prev_data: PagesCallback):
             uid = i["id"]
             uname = i["nm"]
             button = types.InlineKeyboardButton(
+                # text=f"{lock} {uname} ...............................",
                 text=f"{lock} {uname}",
                 callback_data=GetUnitCallback(unit_id=uid).pack()
             )
