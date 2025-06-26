@@ -49,6 +49,13 @@ ERROR_LOG_MSG_FORMAT = """
 """
 
 
+NO_OBJECTS_MESSAGE = """
+*🤷‍♂️ Об'єкти за вашим запитом не знайдені.*
+
+_Якщо ви впевнені що це помилка, зверніться до адміністратора групи_
+"""
+
+
 class WialonBlockBot(Bot):
     def __init__(
             self,
@@ -133,13 +140,15 @@ async def command_start_handler(message: WialonBlockMessage) -> None:
     await message.answer(log_msg)
 
 
-@dp.message(Command("list"))
+@dp.message(Command("list", "start"))
 async def command_list_handler(message: WialonBlockMessage) -> None:
     try:
         logging.info("Received command: `%s`, from chat `%s`" % (message.text, message.chat.id))
         objects = await message.bot.wialon_worker.list_by_tg_group_id(message.chat.id)
         if not objects:
-            raise ValueError("Об'єкти не знайдені")
+            logging.error("No objects found for `%s`" % message.text)
+            await message.answer(NO_OBJECTS_MESSAGE)
+            return
 
         await message.answer(
             LIST_RESULT_MESSAGE_FORMAT.format(
@@ -160,7 +169,9 @@ async def refresh(call: WialonBlockCallbackQuery):
     try:
         objects = await call.bot.wialon_worker.list_by_tg_group_id(call.message.chat.id)
         if not objects:
-            raise ValueError("Об'єкти не знайдені")
+            logging.error("No objects found for call `%s`" % call.id)
+            await call.answer(NO_OBJECTS_MESSAGE)
+            return
 
         await call.message.answer(
             LIST_RESULT_MESSAGE_FORMAT.format(
@@ -178,6 +189,34 @@ async def refresh(call: WialonBlockCallbackQuery):
         await on_call_error(call, e)
 
     await outdated_message(call.message)
+
+
+@dp.message()
+async def search_avl_units(message: WialonBlockMessage):
+    try:
+        logging.info("Received message: `%s`, from chat `%s`" % (message.text, message.chat.id))
+
+        objects = await message.bot.wialon_worker.list_by_tg_group_id(
+            message.chat.id,
+            pattern=message.text
+        )
+
+        if not objects:
+            logging.error("No objects found for `%s`" % message.text)
+            await message.answer(NO_OBJECTS_MESSAGE)
+            return
+
+        await message.answer(
+            LIST_RESULT_MESSAGE_FORMAT.format(
+                datetime=datetime.now().strftime("%d.%m.%Y %H:%M:%S"),
+                user=message.from_user.username,
+            ),
+            reply_markup=kb.search_result(objects, False),
+        )
+    except Exception as e:
+        await on_message_error(message, e)
+
+    await outdated_message(message)
 
 
 async def update_lock_state(unit, lock_state, call: WialonBlockCallbackQuery, as_answer=False):

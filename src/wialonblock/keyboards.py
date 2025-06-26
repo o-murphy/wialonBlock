@@ -34,7 +34,7 @@ def refresh():
     )
 
 
-def search_result(items):
+def search_result(items, refresh=True):
     keyboard_buttons = []
 
     # Use itertools.batched to group items into chunks of 2
@@ -51,7 +51,8 @@ def search_result(items):
             row.append(button)
         keyboard_buttons.append(row)
 
-    keyboard_buttons.append([REFRESH_BUTTON])
+    if refresh:
+        keyboard_buttons.append([REFRESH_BUTTON])
 
     return types.InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
 
