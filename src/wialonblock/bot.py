@@ -6,16 +6,17 @@ from pathlib import Path
 from typing import Any, Optional
 
 from aiogram import Bot, Dispatcher
+from aiogram import F
 from aiogram.client.default import DefaultBotProperties
 from aiogram.client.session.base import BaseSession
 from aiogram.enums import ContentType
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
 from aiogram.types import Message, BotCommand, CallbackQuery
-from aiogram import F
 
 from wialonblock import keyboards as kb
 from wialonblock.config import Config, DEFAULT_CONFIG_PATH, load_config
+from wialonblock.keyboards import PagesAction
 from wialonblock.util import escape_markdown_legacy
 from wialonblock.worker import WialonWorker, ObjState
 
@@ -43,6 +44,16 @@ LIST_RESULT_MESSAGE_FORMAT = """
 *Користувач*: @{user}
 """
 
+PAGES_RESULT_MESSAGE_FORMAT = """
+*Результат пошуку:* `{pattern}`
+
+*Всього*: {total}
+*Відображено*: {start} - {end}
+
+*Останнє оновлення*: {datetime}
+*Користувач*: @{user}
+"""
+
 SEARCH_RESULT_MESSAGE_FORMAT = """
 *Пошуковий запит:* `{pattern}`
 *Результат пошуку:*
@@ -58,7 +69,6 @@ ID помилки: `{uuid}`
 ERROR_LOG_MSG_FORMAT = """
 {uuid}: {msg}
 """
-
 
 NO_OBJECTS_MESSAGE = """
 *🤷‍♂️ Об'єкти за вашим запитом не знайдені.*
@@ -184,6 +194,87 @@ async def command_list_handler(message: WialonBlockMessage) -> None:
     await outdated_message(message)
     # await delete_message(message)
 
+
+@dp.message(Command("pages"))
+async def command_pages_handler(message: WialonBlockMessage) -> None:
+    try:
+        logging.info("Received command: `%s`, from chat `%s`" % (message.text, message.chat.id))
+        pattern = "*"
+        objects = await message.bot.wialon_worker.list_by_tg_group_id(
+            message.chat.id, pattern
+        )
+        if not objects:
+            logging.error("No objects found for `%s`" % message.text)
+            await message.answer(NO_OBJECTS_MESSAGE)
+            return
+
+        # Escape the dynamic parts before formatting
+        current_datetime_str = escape_markdown_legacy(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+        username_escaped = escape_markdown_legacy(message.from_user.username)
+
+        callback_data = kb.PagesCallback(
+                start=0, end=20, pattern=pattern, action=PagesAction.REFRESH
+        )
+        await message.answer(
+            PAGES_RESULT_MESSAGE_FORMAT.format(
+                pattern=escape_markdown_legacy(pattern),
+                total=len(objects),
+                start=callback_data.start+1,
+                end=callback_data.end,
+                datetime=current_datetime_str,
+                user=username_escaped,
+            ),
+            reply_markup=kb.pages_result(objects, callback_data)
+        )
+
+    except Exception as e:
+        await on_message_error(message, e)
+
+    await outdated_message(message)
+
+
+@dp.callback_query(kb.PagesCallback.filter())
+async def pages_call_handler(call: WialonBlockCallbackQuery, callback_data: kb.PagesCallback) -> None:
+    print(callback_data)
+    try:
+        logging.info("Received ca;;: `%s`, from chat `%s`" % (callback_data, call.message.chat.id))
+        pattern = "*"
+        objects = await call.message.bot.wialon_worker.list_by_tg_group_id(
+            call.message.chat.id, pattern
+        )
+        if not objects:
+            logging.error("No objects found for `%s`" % callback_data.pattern)
+            await call.answer(NO_OBJECTS_MESSAGE)
+            return
+
+        # Escape the dynamic parts before formatting
+        current_datetime_str = escape_markdown_legacy(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+        username_escaped = escape_markdown_legacy(call.message.from_user.username)
+
+        await call.message.answer(
+            PAGES_RESULT_MESSAGE_FORMAT.format(
+                pattern=escape_markdown_legacy(pattern),
+                total=len(objects),
+                start=callback_data.start+1,
+                end=callback_data.end,
+                datetime=current_datetime_str,
+                user=username_escaped,
+            ),
+            reply_markup=kb.pages_result(objects, callback_data)
+        )
+        await call.message.delete()
+        if callback_data.action == PagesAction.REFRESH:
+            # await call.answer("Список об'єктів оновлено")
+            await call.answer()
+
+    except TelegramBadRequest as e:
+        logging.error(e)
+        logging.error(call)
+        await call.answer("Оновлень немає")
+    except Exception as e:
+        await on_call_error(call, e)
+
+
 @dp.message(Command("i"))
 async def command_ignore_handler(message: WialonBlockMessage) -> None:
     pass
@@ -213,11 +304,11 @@ async def refresh(call: WialonBlockCallbackQuery):
         await call.answer("Список об'єктів оновлено")
     except TelegramBadRequest as e:
         logging.error(e)
+        logging.error(call)
         await call.answer("Оновлень немає")
     except Exception as e:
         await on_call_error(call, e)
 
-    await outdated_message(call.message)
 
 ALL_SERVICE_CONTENT_TYPES = {
     ContentType.NEW_CHAT_MEMBERS,
@@ -235,6 +326,7 @@ ALL_SERVICE_CONTENT_TYPES = {
 }
 
 SKIP_ALL_SERVICE_UPDATES = ~F.content_type.in_(ALL_SERVICE_CONTENT_TYPES)
+
 
 @dp.message(F.text & SKIP_ALL_SERVICE_UPDATES)
 async def search_avl_units(message: WialonBlockMessage):
