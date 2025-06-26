@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Dict, Any, Tuple, Optional, Type
 
-from aiowialon import Wialon, WialonError
+from aiowialon import Wialon
 from aiowialon.types import flags
 from aiowialon.types.flags import UnitsDataFlag
 
@@ -12,17 +12,21 @@ from wialonblock.config import TelegramGroup
 
 class WialonSession(Wialon):
 
+    @property
+    def base_url(self) -> str:
+        return self._Wialon__base_url
+
     async def __aenter__(self):
         """
         Asynchronously enters the context, performing Wialon login.
         """
-        logging.info(f"Attempting Wialon login for host: {self.__base_url}...")
+        logging.info(f"Attempting Wialon login for host: {self.base_url}...")
         # Use the stored token and app_name for login
         try:
             await self.login()
-            logging.info(f"Successfully logged in to Wialon for host: {self.__base_url}")
+            logging.info(f"Successfully logged in to Wialon for host: {self.base_url}")
         except Exception as e:
-            logging.error(f"Failed to log in to Wialon for host {self.__base_url}: {e}")
+            logging.error(f"Failed to log in to Wialon for host {self.base_url}: {e}")
             # Re-raise the exception to propagate login failure
             raise
         return self  # Important: return self so 'as session' works
@@ -32,12 +36,12 @@ class WialonSession(Wialon):
         Asynchronously exits the context, performing Wialon logout.
         Logs any exceptions that occurred within the 'async with' block.
         """
-        logging.info(f"Attempting Wialon logout for host: {self.__base_url}...")
+        logging.info(f"Attempting Wialon logout for host: {self.base_url}...")
         try:
             await self.logout()
-            logging.info(f"Successfully logged out from Wialon for host: {self.__base_url}")
+            logging.info(f"Successfully logged out from Wialon for host: {self.base_url}")
         except Exception as e:
-            logging.error(f"Error during Wialon logout for host {self.__base_url}: {e}")
+            logging.error(f"Error during Wialon logout for host {self.base_url}: {e}")
         # If exc_type is not None, an exception occurred in the 'async with' block.
         # By not returning True, the exception will be re-raised after __aexit__.
         if exc_type:
@@ -163,14 +167,11 @@ class WialonWorker:
             **{"itemId": to_group["id"], "units": to_uids}
         )
 
-        try:
-            await session.batch(
-                update_from_group_call,
-                update_to_group_call,
-                flags_=flags.BatchFlag.STOP_ON_ERROR
-            )
-        except WialonError as err:
-            print("Errors", err.reason)
+        await session.batch(
+            update_from_group_call,
+            update_to_group_call,
+            flags_=flags.BatchFlag.STOP_ON_ERROR
+        )
 
     async def lock(self, tg_group_id, uid):
         uid = int(uid)
@@ -239,9 +240,3 @@ class WialonWorker:
                 return objects
         else:
             raise Exception(f"Group `%s` not found." % tg_group_id)
-
-    async def lock_by_wln_uid(self, uid):
-        ...
-
-    async def unlock_by_wln_uid(self, uid):
-        ...
