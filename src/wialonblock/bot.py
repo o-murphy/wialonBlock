@@ -220,7 +220,7 @@ async def command_pages_handler(message: WialonBlockMessage) -> None:
         username_escaped = escape_markdown_v2(message.from_user.username)
 
         callback_data = kb.PagesCallback(
-            start=0, end=20, pattern=pattern, action=PagesAction.REFRESH
+            start=0, end=kb.ITEMS_PER_PAGE, pattern=pattern, action=PagesAction.REFRESH
         )
         await message.answer(
             PAGES_RESULT_MESSAGE_FORMAT.format(
@@ -311,7 +311,7 @@ async def search_avl_units(message: WialonBlockMessage):
         username_escaped = escape_markdown_v2(message.from_user.username)
 
         callback_data = kb.PagesCallback(
-            start=0, end=20, pattern=message.text, action=PagesAction.REFRESH
+            start=0, end=kb.ITEMS_PER_PAGE, pattern=message.text, action=PagesAction.REFRESH
         )
         total = len(objects)
         await message.answer(
