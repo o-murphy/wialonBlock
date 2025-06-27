@@ -12,8 +12,7 @@ from aiogram.client.session.base import BaseSession
 from aiogram.enums import ContentType
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import Command
-from aiogram.types import Message, BotCommand, CallbackQuery, MessageEntity, bot_command, InlineQueryResultArticle, \
-    InputTextMessageContent, InlineQuery
+from aiogram.types import Message, BotCommand, CallbackQuery, InlineQuery
 from aiowialon import WialonError
 
 from wialonblock import keyboards as kb
@@ -47,7 +46,8 @@ LIST_RESULT_MESSAGE_FORMAT = """
 """
 
 PAGES_RESULT_MESSAGE_FORMAT = """
-*Результат пошуку:* `{pattern}`
+*Пошуковий запит:* `{pattern}`
+*Результат пошуку:*
 
 *Всього*: {total}
 *Відображено*: {start} \\- {end}
@@ -165,47 +165,44 @@ async def on_call_error(call: WialonBlockCallbackQuery, exception: Exception):
     await call.answer()
 
 
-# @dp.message(CommandStart())
-@dp.message(Command("get_group_id"))
-async def command_start_handler(message: WialonBlockMessage) -> None:
+# @dp.message(Command("list", "start"))
+# async def command_list_handler(message: WialonBlockMessage) -> None:
+#     try:
+#         logging.info("Received command: `%s`, from chat `%s`" % (message.text, message.chat.id))
+#         pattern = "*"
+#         objects = await message.bot.wialon_worker.list_by_tg_group_id(
+#             message.chat.id, pattern
+#         )
+#         if not objects:
+#             logging.error("No objects found for `%s`" % message.text)
+#             await message.answer(NO_OBJECTS_MESSAGE)
+#             return
+#
+#         # Escape the dynamic parts before formatting
+#         current_datetime_str = escape_markdown_v2(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+#         username_escaped = escape_markdown_v2(message.from_user.username)
+#
+#         await message.answer(
+#             SEARCH_RESULT_MESSAGE_FORMAT.format(
+#                 pattern=pattern,
+#                 datetime=current_datetime_str,
+#                 user=username_escaped,
+#             ),
+#             reply_markup=kb.search_result(objects),
+#         )
+#     except Exception as e:
+#         await on_message_error(message, e)
+#
+#     await outdated_message(message)
+#     # await delete_message(message)
+
+
+async def command_get_group_id_handler(message: WialonBlockMessage) -> None:
     log_msg = "Received command: `%s`, from `%d`, chat: `%d`" % (message.text, message.from_user.id, message.chat.id)
     logging.info(log_msg)
     await message.answer(log_msg)
 
 
-@dp.message(Command("list", "start"))
-async def command_list_handler(message: WialonBlockMessage) -> None:
-    try:
-        logging.info("Received command: `%s`, from chat `%s`" % (message.text, message.chat.id))
-        pattern = "*"
-        objects = await message.bot.wialon_worker.list_by_tg_group_id(
-            message.chat.id, pattern
-        )
-        if not objects:
-            logging.error("No objects found for `%s`" % message.text)
-            await message.answer(NO_OBJECTS_MESSAGE)
-            return
-
-        # Escape the dynamic parts before formatting
-        current_datetime_str = escape_markdown_v2(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
-        username_escaped = escape_markdown_v2(message.from_user.username)
-
-        await message.answer(
-            SEARCH_RESULT_MESSAGE_FORMAT.format(
-                pattern=pattern,
-                datetime=current_datetime_str,
-                user=username_escaped,
-            ),
-            reply_markup=kb.search_result(objects),
-        )
-    except Exception as e:
-        await on_message_error(message, e)
-
-    await outdated_message(message)
-    # await delete_message(message)
-
-
-@dp.message(Command("pages"))
 async def command_pages_handler(message: WialonBlockMessage) -> None:
     try:
         logging.info("Received command: `%s`, from chat `%s`" % (message.text, message.chat.id))
@@ -223,13 +220,13 @@ async def command_pages_handler(message: WialonBlockMessage) -> None:
         username_escaped = escape_markdown_v2(message.from_user.username)
 
         callback_data = kb.PagesCallback(
-                start=0, end=20, pattern=pattern, action=PagesAction.REFRESH
+            start=0, end=20, pattern=pattern, action=PagesAction.REFRESH
         )
         await message.answer(
             PAGES_RESULT_MESSAGE_FORMAT.format(
                 pattern=escape_markdown_v2(pattern),
                 total=len(objects),
-                start=callback_data.start+1,
+                start=callback_data.start + 1,
                 end=callback_data.end,
                 datetime=current_datetime_str,
                 user=username_escaped,
@@ -243,11 +240,101 @@ async def command_pages_handler(message: WialonBlockMessage) -> None:
     await outdated_message(message)
 
 
-@dp.callback_query(kb.PagesCallback.filter())
+ALL_SERVICE_CONTENT_TYPES = {
+    ContentType.NEW_CHAT_MEMBERS,
+    ContentType.LEFT_CHAT_MEMBER,
+    ContentType.NEW_CHAT_TITLE,
+    ContentType.NEW_CHAT_PHOTO,
+    ContentType.DELETE_CHAT_PHOTO,
+    ContentType.GROUP_CHAT_CREATED,
+    ContentType.SUPERGROUP_CHAT_CREATED,
+    ContentType.CHANNEL_CHAT_CREATED,
+    ContentType.MESSAGE_AUTO_DELETE_TIMER_CHANGED,
+    ContentType.MIGRATE_TO_CHAT_ID,
+    ContentType.MIGRATE_FROM_CHAT_ID,
+    ContentType.PINNED_MESSAGE,
+}
+
+SKIP_ALL_SERVICE_UPDATES = ~F.content_type.in_(ALL_SERVICE_CONTENT_TYPES)
+
+
+# @dp.message(F.text & SKIP_ALL_SERVICE_UPDATES)
+# async def search_avl_units(message: WialonBlockMessage):
+#     try:
+#         logging.info("Received message: `%s`, from chat `%s`" % (message.text, message.chat.id))
+#
+#         objects = await message.bot.wialon_worker.list_by_tg_group_id(
+#             message.chat.id,
+#             pattern=message.text
+#         )
+#
+#         if not objects:
+#             logging.error("No objects found for `%s`" % message.text)
+#             await message.answer(NO_OBJECTS_MESSAGE)
+#             return
+#
+#         # Escape the dynamic parts before formatting
+#         current_datetime_str = escape_markdown_v2(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+#         username_escaped = escape_markdown_v2(message.from_user.username)
+#
+#         await message.answer(
+#             SEARCH_RESULT_MESSAGE_FORMAT.format(
+#                 # pattern=escape_markdown_v2(message.text),
+#                 pattern=message.text,
+#                 datetime=current_datetime_str,
+#                 user=username_escaped,
+#             ),
+#             reply_markup=kb.search_result(objects, False),
+#         )
+#     except Exception as e:
+#         await on_message_error(message, e)
+#
+#     await outdated_message(message)
+
+
+async def search_avl_units(message: WialonBlockMessage):
+    try:
+        logging.info("Received message: `%s`, from chat `%s`" % (message.text, message.chat.id))
+
+        objects = await message.bot.wialon_worker.list_by_tg_group_id(
+            message.chat.id,
+            pattern=message.text
+        )
+
+        if not objects:
+            logging.error("No objects found for `%s`" % message.text)
+            await message.answer(NO_OBJECTS_MESSAGE)
+            return
+
+        # Escape the dynamic parts before formatting
+        current_datetime_str = escape_markdown_v2(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
+        username_escaped = escape_markdown_v2(message.from_user.username)
+
+        callback_data = kb.PagesCallback(
+            start=0, end=20, pattern=message.text, action=PagesAction.REFRESH
+        )
+        total = len(objects)
+        await message.answer(
+            PAGES_RESULT_MESSAGE_FORMAT.format(
+                pattern=message.text,
+                total=total,
+                start=min(callback_data.start + 1, total),
+                end=min(callback_data.end, total),
+                datetime=current_datetime_str,
+                user=username_escaped,
+            ),
+            reply_markup=kb.pages_result(objects, callback_data)
+        )
+    except Exception as e:
+        await on_message_error(message, e)
+
+    await outdated_message(message)
+
+
 async def pages_call_handler(call: WialonBlockCallbackQuery, callback_data: kb.PagesCallback) -> None:
     try:
-        logging.info("Received ca;;: `%s`, from chat `%s`" % (callback_data, call.message.chat.id))
-        pattern = "*"
+        logging.info("Received call: `%s`, from chat `%s`" % (callback_data, call.message.chat.id))
+        pattern = callback_data.pattern
         objects = await call.message.bot.wialon_worker.list_by_tg_group_id(
             call.message.chat.id, pattern
         )
@@ -260,12 +347,13 @@ async def pages_call_handler(call: WialonBlockCallbackQuery, callback_data: kb.P
         current_datetime_str = escape_markdown_v2(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
         username_escaped = escape_markdown_v2(call.from_user.username)
 
+        total = len(objects)
         await call.message.answer(
             PAGES_RESULT_MESSAGE_FORMAT.format(
                 pattern=pattern,
-                total=len(objects),
-                start=callback_data.start+1,
-                end=callback_data.end,
+                total=total,
+                start=min(callback_data.start + 1, total),
+                end=min(callback_data.end, total),
                 datetime=current_datetime_str,
                 user=username_escaped,
             ),
@@ -284,22 +372,21 @@ async def pages_call_handler(call: WialonBlockCallbackQuery, callback_data: kb.P
         await on_call_error(call, e)
 
 
-@dp.message(Command("i"))
 async def command_ignore_handler(message: WialonBlockMessage) -> None:
     pass
 
 
-@dp.message(Command("lookup"))
-async def command_ignore_handler(message: WialonBlockMessage) -> None:
-    message_text = message.text
-    command_entity = message.entities[0]  # Assuming the bot_command is the first entity
-    if isinstance(command_entity, MessageEntity) and command_entity.type == "bot_command":
-        # The text after the command will start at the offset + length of the command
-        start_index = command_entity.offset + command_entity.length
-        sometext = message_text[start_index:].strip()
-        print(sometext)
-    else:
-        await message.reply("Неправильний формат команди.")
+# @dp.message(Command("lookup"))
+# async def command_lookup_handler(message: WialonBlockMessage) -> None:
+#     message_text = message.text
+#     command_entity = message.entities[0]  # Assuming the bot_command is the first entity
+#     if isinstance(command_entity, MessageEntity) and command_entity.type == "bot_command":
+#         # The text after the command will start at the offset + length of the command
+#         start_index = command_entity.offset + command_entity.length
+#         sometext = message_text[start_index:].strip()
+#         print(sometext)
+#     else:
+#         await message.reply("Неправильний формат команди.")
 
 
 # # This decorator registers the function to handle inline queries
@@ -403,8 +490,7 @@ async def command_ignore_handler(message: WialonBlockMessage) -> None:
 #     )
 
 
-@dp.callback_query(kb.RefreshCallback.filter())
-async def refresh(call: WialonBlockCallbackQuery):
+async def refresh_call_handler(call: WialonBlockCallbackQuery):
     try:
         objects = await call.bot.wialon_worker.list_by_tg_group_id(call.message.chat.id)
         if not objects:
@@ -433,58 +519,6 @@ async def refresh(call: WialonBlockCallbackQuery):
         await on_call_error(call, e)
 
 
-ALL_SERVICE_CONTENT_TYPES = {
-    ContentType.NEW_CHAT_MEMBERS,
-    ContentType.LEFT_CHAT_MEMBER,
-    ContentType.NEW_CHAT_TITLE,
-    ContentType.NEW_CHAT_PHOTO,
-    ContentType.DELETE_CHAT_PHOTO,
-    ContentType.GROUP_CHAT_CREATED,
-    ContentType.SUPERGROUP_CHAT_CREATED,
-    ContentType.CHANNEL_CHAT_CREATED,
-    ContentType.MESSAGE_AUTO_DELETE_TIMER_CHANGED,
-    ContentType.MIGRATE_TO_CHAT_ID,
-    ContentType.MIGRATE_FROM_CHAT_ID,
-    ContentType.PINNED_MESSAGE,
-}
-
-SKIP_ALL_SERVICE_UPDATES = ~F.content_type.in_(ALL_SERVICE_CONTENT_TYPES)
-
-
-@dp.message(F.text & SKIP_ALL_SERVICE_UPDATES)
-async def search_avl_units(message: WialonBlockMessage):
-    try:
-        logging.info("Received message: `%s`, from chat `%s`" % (message.text, message.chat.id))
-
-        objects = await message.bot.wialon_worker.list_by_tg_group_id(
-            message.chat.id,
-            pattern=message.text
-        )
-
-        if not objects:
-            logging.error("No objects found for `%s`" % message.text)
-            await message.answer(NO_OBJECTS_MESSAGE)
-            return
-
-        # Escape the dynamic parts before formatting
-        current_datetime_str = escape_markdown_v2(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
-        username_escaped = escape_markdown_v2(message.from_user.username)
-
-        await message.answer(
-            SEARCH_RESULT_MESSAGE_FORMAT.format(
-                # pattern=escape_markdown_v2(message.text),
-                pattern=message.text,
-                datetime=current_datetime_str,
-                user=username_escaped,
-            ),
-            reply_markup=kb.search_result(objects, False),
-        )
-    except Exception as e:
-        await on_message_error(message, e)
-
-    await outdated_message(message)
-
-
 async def update_lock_state(unit, lock_state, call: WialonBlockCallbackQuery, as_answer=False):
     u_name = unit.get('item', {}).get('nm', "Невідомий об'єкт")
     dt = escape_markdown_v2(datetime.now().strftime("%d.%m.%Y %H:%M:%S"))
@@ -509,8 +543,7 @@ async def update_lock_state(unit, lock_state, call: WialonBlockCallbackQuery, as
             await message_action(message_text)
 
 
-@dp.callback_query(kb.GetUnitCallback.filter())
-async def show_unit(call: WialonBlockCallbackQuery, callback_data: kb.GetUnitCallback):
+async def show_unit_call_handler(call: WialonBlockCallbackQuery, callback_data: kb.GetUnitCallback):
     try:
         u_id = callback_data.unit_id
         unit, lock_state = await call.bot.wialon_worker.get_unit_and_lock_state(call.message.chat.id, u_id)
@@ -522,8 +555,7 @@ async def show_unit(call: WialonBlockCallbackQuery, callback_data: kb.GetUnitCal
     await delete_message(call.message)
 
 
-@dp.callback_query(kb.LockUnitCallback.filter())
-async def lock_avl_unit(call: WialonBlockCallbackQuery, callback_data: kb.LockUnitCallback):
+async def lock_unit_call_handler(call: WialonBlockCallbackQuery, callback_data: kb.LockUnitCallback):
     try:
         u_id = callback_data.unit_id
         logging.info("Attempt to lock uid: `%s`" % u_id)
@@ -542,8 +574,8 @@ async def lock_avl_unit(call: WialonBlockCallbackQuery, callback_data: kb.LockUn
         await on_call_error(call, e)
 
 
-@dp.callback_query(kb.UnlockUnitCallback.filter())
-async def unlock_avl_unit(call: WialonBlockCallbackQuery, callback_data: kb.UnlockUnitCallback):
+# @dp.callback_query(kb.UnlockUnitCallback.filter())
+async def unlock_unit_call_handler(call: WialonBlockCallbackQuery, callback_data: kb.UnlockUnitCallback):
     try:
         u_id = callback_data.unit_id
         logging.info("Attempt to unlock uid: `%s`" % u_id)
@@ -562,13 +594,13 @@ async def unlock_avl_unit(call: WialonBlockCallbackQuery, callback_data: kb.Unlo
         await on_call_error(call, e)
 
 
-@dp.callback_query()
-async def anycall(call: WialonBlockCallbackQuery):
+# @dp.callback_query()
+async def any_call_handler(call: WialonBlockCallbackQuery):
     logging.info("unknown call: %s" % call.data)
 
 
-@dp.message()  # listens all messages and log it out
-async def all_msg_listener(message: WialonBlockMessage):
+# @dp.message()  # listens all messages and log it out
+async def any_message_handler(message: WialonBlockMessage):
     logging.info('undefined message %s by @%s (%s)' % (message.from_user.id,
                                                        message.from_user.username,
                                                        message.text))
@@ -587,6 +619,21 @@ async def run_bot(config_path: Path = DEFAULT_CONFIG_PATH) -> None:
                          default=DefaultBotProperties(**config.tg.bot_props.model_dump()))
 
     dp.startup.register(set_default_commands)
+
+    dp.message(Command("list"))(command_pages_handler)
+    dp.message(Command("get_group_id"))(command_get_group_id_handler)
+    dp.message(Command("i"))(command_ignore_handler)
+
+    dp.message(F.text & SKIP_ALL_SERVICE_UPDATES)(search_avl_units)
+
+    dp.callback_query(kb.PagesCallback.filter())(pages_call_handler)
+    dp.callback_query(kb.RefreshCallback.filter())(refresh_call_handler)
+    dp.callback_query(kb.GetUnitCallback.filter())(show_unit_call_handler)
+    dp.callback_query(kb.LockUnitCallback.filter())(lock_unit_call_handler)
+    dp.callback_query(kb.UnlockUnitCallback.filter())(unlock_unit_call_handler)
+
+    dp.callback_query()(any_call_handler)
+    dp.message()(any_message_handler)
 
     # Start polling
     try:

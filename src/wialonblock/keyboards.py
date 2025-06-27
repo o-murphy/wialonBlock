@@ -219,7 +219,8 @@ def pages_result(items: Dict, prev_data: PagesCallback):
     else:
         nav_buttons.append(types.InlineKeyboardButton(text=" ", callback_data="no_op"))
 
-    keyboard_buttons.append(nav_buttons)
+    if total_items >= ITEMS_PER_PAGE:
+        keyboard_buttons.append(nav_buttons)
     keyboard_buttons.append([refresh_page_button(temp_prev_data_for_buttons)])
 
     return types.InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
