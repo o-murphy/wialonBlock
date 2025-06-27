@@ -26,6 +26,14 @@ Redirect logging stdout
 wialonblock > path/where/save/wialonblock.log
 ```
 
+### Bot commands
+```shell
+/list - Display all units
+/get_group_id - Get current chat/group ID
+<string> - Search by pattern string
+/i <string> - This message will be ignored by search handler
+```
+
 ### Update
 
 Update the app using `uv tool upgrade`
