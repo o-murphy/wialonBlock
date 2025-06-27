@@ -51,3 +51,19 @@ Uninstall the package with `uv tool uninstall`
 ```shell
 uv tool uninstall wialonBlock
 ```
+
+### Run in docker
+```shell
+docker build -t wialonblock .
+mkdir -p log
+touch .env.toml  # adjust content to your own
+docker run -d \
+  --name wialonblock \
+  -e CONFIG_PATH=/app/.env.toml \
+  -e LOG_PATH=/app/log/logfile \
+  -v "$(pwd)/.env.toml:/app/.env.toml" \
+  -v "$(pwd)/log:/app/log" \
+  --restart unless-stopped \
+  wialonblock
+```
+

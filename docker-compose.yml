@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  wialonblock:
+    build: .
+    container_name: wialonblock
+    environment:
+      CONFIG_PATH: /app/.env.toml
+      LOG_PATH: /app/log/logfile
+    volumes:
+      - ./.env.toml:/app/.env.toml
+      - ./log:/app/log
+    restart: unless-stopped
