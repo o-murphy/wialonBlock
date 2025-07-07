@@ -65,13 +65,17 @@ class PagesAction(StrEnum):
     BACK = "⬅️"
     NEXT = "➡️"
 
-class PagesCallback(CallbackData, prefix="page"): # Changed prefix to 'page' for clarity, adjust if 'refresh' is specifically needed
+
+class PagesCallback(CallbackData,
+                    prefix="page"):  # Changed prefix to 'page' for clarity, adjust if 'refresh' is specifically needed
     start: int
     end: int
-    pattern: str # You have a 'pattern' field, ensure it's handled if it affects pagination logic
+    pattern: str  # You have a 'pattern' field, ensure it's handled if it affects pagination logic
     action: PagesAction
 
+
 ITEMS_PER_PAGE = 20
+
 
 def next_page_button(current_page_data: PagesCallback, total_items_count: int):
     # Calculate the new start and end for the NEXT page
@@ -86,7 +90,7 @@ def next_page_button(current_page_data: PagesCallback, total_items_count: int):
             # Calculate the start of the last possible page
             new_start = max(0, (total_items_count - 1) // ITEMS_PER_PAGE * ITEMS_PER_PAGE)
         else:
-            new_start = 0 # No items, so start is 0
+            new_start = 0  # No items, so start is 0
 
     new_end = min(new_start + ITEMS_PER_PAGE, total_items_count)
 
@@ -104,6 +108,7 @@ def next_page_button(current_page_data: PagesCallback, total_items_count: int):
         callback_data=next_data.pack()
     )
 
+
 def back_page_button(current_page_data: PagesCallback):
     # Calculate the new start and end for the BACK page
     new_start = current_page_data.start - ITEMS_PER_PAGE
@@ -114,7 +119,8 @@ def back_page_button(current_page_data: PagesCallback):
         new_start = 0
 
     # Ensure end is adjusted correctly for the new start position
-    new_end = min(new_start + ITEMS_PER_PAGE, current_page_data.start) # Use current_page_data.start as upper bound for end if going back from a partial page
+    new_end = min(new_start + ITEMS_PER_PAGE,
+                  current_page_data.start)  # Use current_page_data.start as upper bound for end if going back from a partial page
 
     # If new_end ends up being 0 when new_start is 0 but there are items
     if new_start == 0 and new_end == 0 and ITEMS_PER_PAGE > 0:
@@ -134,6 +140,7 @@ def back_page_button(current_page_data: PagesCallback):
         callback_data=back_data.pack()
     )
 
+
 def refresh_page_button(current_page_data: PagesCallback):
     # For refresh, we want to keep the current page state but explicitly set action to REFRESH
     # This ensures that when the callback is handled, the state is re-evaluated.
@@ -148,6 +155,7 @@ def refresh_page_button(current_page_data: PagesCallback):
         text="🔄 Оновити",
         callback_data=refresh_data.pack()
     )
+
 
 def pages_result(items: Dict, prev_data: PagesCallback):
     keyboard_buttons = []
@@ -206,7 +214,7 @@ def pages_result(items: Dict, prev_data: PagesCallback):
         start=current_start,
         end=current_end,
         pattern=prev_data.pattern,
-        action=PagesAction.REFRESH # Action here reflects the current view for generating buttons
+        action=PagesAction.REFRESH  # Action here reflects the current view for generating buttons
     )
 
     if temp_prev_data_for_buttons.start > 0:

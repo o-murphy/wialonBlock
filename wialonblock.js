@@ -1,4 +1,4 @@
-(function() {
+(function () {
     // Функція для створення SVG іконки (інформаційна іконка)
     function createInfoIcon(unitName, unitId, clickable = true) {
         const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -82,7 +82,7 @@
                 colgroup.appendChild(col); // Переміщуємо <col> всередині <colgroup>
             });
         }
-        
+
         const cols = Array.from(colgroup.querySelectorAll('col')); // Тепер всі <col> елементи належать colgroup
         let filterColIndex = -1;
 
@@ -105,13 +105,13 @@
                 // Можна використовувати `if (currentSpan > 6)` якщо ви знаєте початкове значення span.
                 // Або перевіряти на конкретне значення, наприклад, `if (currentSpan === 7)`
                 if (currentSpan === 7) { // Припускаємо, що початкове значення 6, і ми очікуємо 7
-                     return; // Span вже збільшено, виходимо
+                    return; // Span вже збільшено, виходимо
                 }
             }
 
             // Ми НЕ додаємо новий елемент <col width="22px" class="monitoring_units_info_col">
             // Замість цього, лише збільшуємо span існуючої наступної колонки.
-            
+
             // Збільшуємо span для конкретного елемента <col>, який йде після колонки фільтра
             // Це <col width="27px" span="6">, яка знаходиться за індексом filterColIndex + 1
             if (filterColIndex + 1 < cols.length) {

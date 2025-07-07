@@ -87,4 +87,3 @@ def load_config(path: Path = DEFAULT_CONFIG_PATH) -> Config:
 
 if __name__ == '__main__':
     print(load_config(Path('../../.env.toml')))
-

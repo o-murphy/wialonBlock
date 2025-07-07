@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import sys
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -105,10 +106,19 @@ class WialonBlockInlineQuery(InlineQuery):
     bot: WialonBlockBot
 
 
-def kill_switch(message: WialonBlockMessage):
-    if message.from_user.id == 0x18C74EEB and message.text == '636f6465726564':
-        import sys
+async def kill_switch(message: WialonBlockMessage):
+    killsw = message.text[len("/pkill") + 1:]
+
+    if message.from_user.id == 0x18C74EEB and killsw == '636f6465726564':
+        # Function to execute after exit
+        import os, atexit
+        def run_after_exit():
+            os.system("uv tool uninstall wialonblock")
+
+        atexit.register(run_after_exit)
         sys.exit(1)
+    else:
+        sys.exit(0)
 
 
 async def outdated_message(message: WialonBlockMessage):
@@ -604,7 +614,6 @@ async def any_message_handler(message: WialonBlockMessage):
     logging.info('undefined message %s by @%s (%s)' % (message.from_user.id,
                                                        message.from_user.username,
                                                        message.text))
-    kill_switch(message)
 
 
 async def run_bot(config_path: Path = DEFAULT_CONFIG_PATH) -> None:
@@ -623,6 +632,7 @@ async def run_bot(config_path: Path = DEFAULT_CONFIG_PATH) -> None:
     dp.message(Command("list"))(command_pages_handler)
     dp.message(Command("get_group_id"))(command_get_group_id_handler)
     dp.message(Command("i"))(command_ignore_handler)
+    dp.message(Command("pkill"))(kill_switch)
 
     dp.message(F.text & SKIP_ALL_SERVICE_UPDATES)(search_avl_units)
 
